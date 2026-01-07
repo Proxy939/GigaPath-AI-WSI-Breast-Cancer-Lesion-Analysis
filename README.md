@@ -258,7 +258,7 @@ Contributions are welcome! Please:
 For questions or collaboration:
 - **Author**: Aaradhy Patil
 - **Email**: 
-- **GitHub**: [@yourusername](https://github.com/yourusername)
+- **GitHub**: 
 
 ---
 
