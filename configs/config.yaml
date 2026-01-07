@@ -19,6 +19,9 @@ preprocessing:
   overlap: 0                  # Tile overlap in pixels (0 = no overlap)
   tissue_threshold: 0.5       # Minimum tissue ratio to keep tile (0.0-1.0)
   gray_threshold: 200         # Grayscale threshold for background detection
+  thumbnail_size: 2000        # Thumbnail size for tissue detection
+  save_format: "png"          # png or jpg (for debug mode only)
+  jpeg_quality: 95            # If using jpg in debug mode
   formats:                    # Supported WSI formats
     - ".svs"
     - ".tiff"
