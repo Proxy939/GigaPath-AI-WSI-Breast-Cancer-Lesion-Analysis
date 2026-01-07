@@ -46,8 +46,8 @@ feature_extraction:
 # ============================================================================
 sampling:
   k: 1000                     # Number of top tiles to select
-  ranking_method: "attention" # Options: attention, feature_norm, hybrid
-  hybrid_weight: 0.7          # Weight for attention if using hybrid (0.0-1.0)
+  ranking_method: "feature_norm"  # Options: feature_norm, attention (Phase 3)
+  hybrid_weight: 0.7          # Weight for attention if using hybrid (Phase 3)
 
 # ============================================================================
 # Stage 3: MIL Aggregation & Classification
