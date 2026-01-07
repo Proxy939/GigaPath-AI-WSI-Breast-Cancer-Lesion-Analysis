@@ -178,13 +178,11 @@ GigaPath-AI-WSI-Breast-Cancer-Lesion-Analysis/
 ### Minimum
 - **GPU**: NVIDIA RTX 4070 8GB (or equivalent)
 - **RAM**: 16 GB
-- **Storage**: 100 GB (for WSI data + features)
 - **OS**: Windows 10/11, Linux (Ubuntu 20.04+)
 
 ### Recommended
 - **GPU**: RTX 4080 16GB or higher
 - **RAM**: 32 GB
-- **Storage**: 500 GB SSD
 
 ---
 
