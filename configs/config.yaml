@@ -32,14 +32,14 @@ preprocessing:
 # Stage 1: Feature Extraction
 # ============================================================================
 feature_extraction:
-  backbone: "resnet50_ssl"    # Options: resnet50_ssl, ctranspath, retccl
-  pretrained: true            # Use pretrained weights
-  frozen: true                # Freeze backbone weights (no fine-tuning)
-  batch_size: 32              # Batch size for feature extraction (GPU-safe)
-  num_workers: 4              # DataLoader workers
-  feature_dim: 2048           # Output feature dimension
-  cache_format: "h5"          # Options: h5, npy
-  normalize_features: true    # L2 normalization of features
+  backbone: "resnet50-imagenet" # Options: resnet50-imagenet, resnet50-simclr, ctranspath
+  pretrained: true              # Use pretrained weights
+  frozen: true                  # Freeze backbone weights (no fine-tuning)
+  batch_size: 48                # Batch size for feature extraction (GPU-safe for RTX 4070)
+  num_workers: 4                # DataLoader workers
+  feature_dim: 2048             # Output feature dimension (ResNet50)
+  cache_format: "h5"            # HDF5 format for feature caching
+  normalize_features: false     # L2 normalization of features (optional)
 
 # ============================================================================
 # Stage 2: Top-K Tile Sampling
