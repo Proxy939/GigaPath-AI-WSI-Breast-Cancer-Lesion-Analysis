@@ -256,9 +256,9 @@ Contributions are welcome! Please:
 ## 📧 Contact
 
 For questions or collaboration:
-- **Author**: Your Name
-- **Email**: your.email@example.com
-- **GitHub**: [@yourusername](https://github.com/yourusername)
+- **Author**: Aaradhy Patil
+- **Email**: 
+- **GitHub**: 
 
 ---
 
