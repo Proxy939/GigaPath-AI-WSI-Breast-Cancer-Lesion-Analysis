@@ -31,7 +31,8 @@ class GPUMonitor:
             logger.info(f"Total VRAM: {self.total_vram / 1024**3:.2f} GB")
             logger.info(f"Max usage limit: {max_vram_gb:.2f} GB")
         else:
-            logger.warning("No GPU detected. Running on CPU.")
+            logger.error("GPU REQUIRED — CPU EXECUTION DISALLOWED")
+            raise RuntimeError("CUDA NOT AVAILABLE — GPU REQUIRED")
     
     def check_availability(self) -> bool:
         """Check if GPU is available."""
@@ -141,7 +142,7 @@ def get_device(gpu_id: int = 0) -> torch.device:
             device = torch.device("cuda:0")
             logger.warning(f"Invalid GPU ID {gpu_id}, using cuda:0")
     else:
-        device = torch.device("cpu")
-        logger.warning("GPU not available, using CPU")
+        logger.error("GPU REQUIRED — CPU EXECUTION DISALLOWED")
+        raise RuntimeError("CUDA NOT AVAILABLE — GPU REQUIRED")
     
     return device

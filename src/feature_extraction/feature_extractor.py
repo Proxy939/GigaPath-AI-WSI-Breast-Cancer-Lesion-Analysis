@@ -40,8 +40,15 @@ class FeatureExtractor:
         self.model_name = model_name
         self.use_amp = use_amp
         
-        # Setup device
-        self.device = device if device is not None else get_device()
+        # Setup device (Force GPU)
+        if device is None:
+            if not torch.cuda.is_available():
+                raise RuntimeError("CUDA NOT AVAILABLE — GPU REQUIRED")
+            self.device = torch.device("cuda")
+        else:
+            if device.type != 'cuda':
+                 raise RuntimeError("CPU DEVICE DISALLOWED — GPU REQUIRED")
+            self.device = device
         
         # Load backbone model
         self.model, self.feature_dim = BackboneLoader.load_backbone(
@@ -72,7 +79,7 @@ class FeatureExtractor:
     def _calculate_safe_batch_size(self) -> int:
         """Calculate safe batch size for GPU."""
         if not torch.cuda.is_available():
-            return 16  # CPU default
+             raise RuntimeError("CUDA NOT AVAILABLE — GPU REQUIRED")
         
         # Estimate memory per tile
         # 256x256x3 image → ~0.75 MB as float32

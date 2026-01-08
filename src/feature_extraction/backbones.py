@@ -66,10 +66,18 @@ class BackboneLoader:
                 param.requires_grad = False
             logger.info("✓ Model parameters frozen")
         
-        # Move to device
-        if device is not None:
-            model = model.to(device)
-            logger.info(f"✓ Model moved to {device}")
+        # Helper validation
+        if not torch.cuda.is_available():
+             raise RuntimeError("CUDA GPU REQUIRED. CPU execution is DISABLED.")
+
+        # Move to device (Force CUDA)
+        if device is None:
+            device = torch.device("cuda")
+        elif device.type != 'cuda':
+            raise RuntimeError(f"CPU DEVICE DISALLOWED: {device}")
+            
+        model = model.to(device)
+        logger.info(f"✓ Model moved to {device}")
         
         # Set to eval mode
         model.eval()
@@ -168,7 +176,10 @@ def test_backbone_loading():
     print("Testing backbone loading...")
     
     # Load model
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if not torch.cuda.is_available():
+        raise RuntimeError("Test failed: CUDA required")
+        
+    device = torch.device('cuda')
     model, feature_dim = BackboneLoader.load_backbone(
         model_name='resnet50-imagenet',
         freeze=True,

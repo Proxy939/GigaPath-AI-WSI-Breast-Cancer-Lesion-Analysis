@@ -25,6 +25,7 @@ from typing import List
 from tqdm import tqdm
 import json
 import time
+import torch
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -254,6 +255,25 @@ def main():
         seed=config['experiment']['seed'],
         deterministic=config['experiment']['deterministic']
     )
+    
+    # ------------------------------------------------------------------------
+    # STEP 3: FORCE GPU-ONLY MODE (NO CPU FALLBACK)
+    # ------------------------------------------------------------------------
+    if not torch.cuda.is_available():
+        logger.error("GPU REQUIRED — CPU EXECUTION DISALLOWED")
+        raise RuntimeError("CUDA NOT AVAILABLE — GPU REQUIRED")
+
+    # Force device assignment
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    
+    # Disable CPU fallback globally
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.benchmark = True
+    
+    logger.info("✓ GLOBAL GPU ENFORCEMENT ACTIVE")
+    logger.info(f"✓ CUDA Device: {torch.cuda.get_device_name(0)}")
+    # ------------------------------------------------------------------------
     
     # Log configuration
     logger.info("="*60)
