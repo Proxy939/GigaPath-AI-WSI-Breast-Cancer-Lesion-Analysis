@@ -6,8 +6,16 @@
 # ============================================================================
 experiment:
   seed: 42                    # Random seed for reproducibility
-  deterministic: true         # Enable deterministic algorithms
+  deterministic: false        # Enable deterministic algorithms
   project_name: "GigaPath-WSI-Breast-Cancer"
+
+# ...
+
+hardware:
+  gpu_id: 0                   # GPU device ID (-1 for CPU)
+  max_vram_gb: 7.5            # Maximum VRAM usage (GB) - safety margin for 8GB
+  mixed_precision: true       # Enable AMP (Automatic Mixed Precision)
+  cudnn_benchmark: true       # Disable for deterministic behavior
   run_name: "baseline"        # Experiment run identifier
 
 # ============================================================================
@@ -112,6 +120,7 @@ paths:
   features: "data/features"
   models: "data/models"
   results: "data/results"
+  checkpoints: "checkpoints"
   logs: "logs"
 
 # ============================================================================

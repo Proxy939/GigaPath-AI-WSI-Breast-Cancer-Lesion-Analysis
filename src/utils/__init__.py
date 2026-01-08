@@ -2,7 +2,7 @@
 from .logger import setup_logger, get_logger
 from .config import load_config
 from .seed import set_seed
-from .gpu_monitor import GPUMonitor, get_safe_batch_size
+from .gpu_monitor import GPUMonitor, get_safe_batch_size, get_device
 
 __all__ = [
     'setup_logger',
@@ -11,4 +11,5 @@ __all__ = [
     'set_seed',
     'GPUMonitor',
     'get_safe_batch_size',
+    'get_device',
 ]

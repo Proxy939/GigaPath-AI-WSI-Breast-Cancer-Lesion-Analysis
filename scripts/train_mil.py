@@ -208,8 +208,7 @@ def main():
             optimizer,
             mode='max',
             patience=config['mil']['scheduler_patience'],
-            factor=config['mil']['scheduler_factor'],
-            verbose=True
+            factor=config['mil']['scheduler_factor']
         )
     else:
         scheduler = None
