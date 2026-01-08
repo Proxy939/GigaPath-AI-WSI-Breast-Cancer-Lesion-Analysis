@@ -87,6 +87,15 @@ def preprocess_slides(
     logger.info(f"Found {len(wsi_files)} WSI files")
     
     if len(wsi_files) == 0:
+        # Check for subdirectories to provide helpful guidance
+        if input_p.is_dir():
+            subdirs = [d.name for d in input_p.iterdir() if d.is_dir()]
+            if subdirs:
+                logger.info("No WSI files found at this level.")
+                logger.info(f"Detected subfolders: {', '.join(subdirs)}")
+                logger.info("Please run preprocessing separately for each folder.")
+                return
+
         logger.warning("No WSI files found. Exiting.")
         return
     
