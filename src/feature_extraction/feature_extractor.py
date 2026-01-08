@@ -190,7 +190,7 @@ class FeatureExtractor:
             'coordinates_shape': coords_array.shape
         }
         
-        logger.info(f"✓ Features saved to {output_path}")
+        logger.info(f"[OK] Features saved to {output_path}")
         
         return stats
     

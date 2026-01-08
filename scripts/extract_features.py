@@ -85,6 +85,15 @@ def extract_features_from_slides(
     logger.info(f"Found {len(wsi_files)} WSI files")
     
     if len(wsi_files) == 0:
+        # Check for subdirectories to provide helpful guidance
+        if input_p.is_dir():
+            subdirs = [d.name for d in input_p.iterdir() if d.is_dir()]
+            if subdirs:
+                logger.info("No WSI files found at this level.")
+                logger.info(f"Detected subfolders: {', '.join(subdirs)}")
+                logger.info("Please run feature extraction separately for each folder.")
+                return
+
         logger.warning("No WSI files found. Exiting.")
         return
     
@@ -143,7 +152,7 @@ def extract_features_from_slides(
             total_tiles += stats['num_tiles']
             
             logger.info(
-                f"✓ {slide_name}: {stats['num_tiles']} tiles, "
+                f"[OK] {slide_name}: {stats['num_tiles']} tiles, "
                 f"{stats['feature_dim']}-dim features, "
                 f"{slide_time:.1f}s"
             )
@@ -153,7 +162,7 @@ def extract_features_from_slides(
                 gpu_monitor.log_memory_status()
         
         except Exception as e:
-            logger.error(f"✗ Failed to process {slide_name}: {e}", exc_info=True)
+            logger.error(f"[FAIL] Failed to process {slide_name}: {e}", exc_info=True)
             failed_slides.append(slide_name)
     
     total_time = time.time() - start_time
@@ -271,8 +280,8 @@ def main():
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
     
-    logger.info("✓ GLOBAL GPU ENFORCEMENT ACTIVE")
-    logger.info(f"✓ CUDA Device: {torch.cuda.get_device_name(0)}")
+    logger.info("GPU ENFORCEMENT ACTIVE")
+    logger.info(f"CUDA Device: {torch.cuda.get_device_name(0)}")
     # ------------------------------------------------------------------------
     
     # Log configuration

@@ -253,7 +253,7 @@ def main():
     logger.info(f"Input: {args.input}")
     logger.info(f"Output: {args.output}")
     logger.info(f"Tile size: {config['preprocessing']['tile_size']}")
-    logger.info(f"Magnification: {config['preprocessing']['magnification']}×")
+    logger.info(f"Magnification: {config['preprocessing']['magnification']}x")
     logger.info(f"Tissue threshold: {config['preprocessing']['tissue_threshold']}")
     logger.info(f"Mode: {'DEBUG (save tiles)' if args.save_tiles else 'PRODUCTION (transient)'}")
     logger.info("="*60)

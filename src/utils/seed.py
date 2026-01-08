@@ -49,7 +49,7 @@ def set_seed(seed: int = 42, deterministic: bool = True):
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
     
-    print(f"✓ Random seed set to {seed}")
-    print(f"✓ Deterministic mode: {'ENABLED' if deterministic else 'DISABLED'}")
+    print(f"[OK] Random seed set to {seed}")
+    print(f"[OK] Deterministic mode: {'ENABLED' if deterministic else 'DISABLED'}")
     if deterministic:
         print("  (Note: ~5-10% slower but fully reproducible)")

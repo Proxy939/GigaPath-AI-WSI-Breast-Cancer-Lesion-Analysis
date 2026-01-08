@@ -157,7 +157,7 @@ class MILTrainer:
         if is_best:
             best_path = self.checkpoint_dir / 'best_model.pth'
             torch.save(checkpoint, best_path)
-            logger.info(f"✓ Saved best model (AUC: {metrics['auc']:.4f})")
+            logger.info(f"[OK] Saved best model (AUC: {metrics['auc']:.4f})")
     
     def load_checkpoint(self, checkpoint_path: str):
         """
@@ -172,7 +172,7 @@ class MILTrainer:
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.best_auc = checkpoint.get('best_auc', 0.0)
         
-        logger.info(f"✓ Loaded checkpoint from epoch {checkpoint['epoch']}")
+        logger.info(f"[OK] Loaded checkpoint from epoch {checkpoint['epoch']}")
         return checkpoint['epoch']
     
     def train(

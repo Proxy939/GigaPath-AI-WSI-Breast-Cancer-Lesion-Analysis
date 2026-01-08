@@ -64,7 +64,7 @@ class BackboneLoader:
         if freeze:
             for param in model.parameters():
                 param.requires_grad = False
-            logger.info("✓ Model parameters frozen")
+            logger.info("Model parameters frozen")
         
         # Helper validation
         if not torch.cuda.is_available():
@@ -77,12 +77,12 @@ class BackboneLoader:
             raise RuntimeError(f"CPU DEVICE DISALLOWED: {device}")
             
         model = model.to(device)
-        logger.info(f"✓ Model moved to {device}")
+        logger.info(f"Model moved to {device}")
         
         # Set to eval mode
         model.eval()
         
-        logger.info(f"✓ Backbone loaded: {model_name} (feature_dim={feature_dim})")
+        logger.info(f"Backbone loaded: {model_name} (feature_dim={feature_dim})")
         
         return model, feature_dim
     

@@ -89,7 +89,7 @@ class GPUMonitor:
         """Clear GPU cache to free up memory."""
         if self.check_availability():
             torch.cuda.empty_cache()
-            logger.info("✓ GPU cache cleared")
+            logger.info("[OK] GPU cache cleared")
 
 
 def get_safe_batch_size(
