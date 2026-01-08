@@ -2,8 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $url = "https://github.com/openslide/openslide-bin/releases/download/v4.0.0.11/openslide-bin-4.0.0.11-windows-x64.zip"
 $zipPath = "$PSScriptRoot\openslide.zip"
-$extractPath = "C:\"
-$finalPath = "C:\OpenSlide"
+
 $localPath = "$PSScriptRoot\..\openslide"
 
 Write-Host "Downloading OpenSlide from $url..."
