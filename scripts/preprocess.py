@@ -11,6 +11,7 @@ Usage:
     # With config file
     python scripts/preprocess.py --config configs/config.yaml --input data/raw_wsi
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -20,6 +21,8 @@ import json
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import src.utils.openslide_setup
 
 from src.preprocessing import TileExtractor
 from src.utils import setup_logger, load_config, set_seed

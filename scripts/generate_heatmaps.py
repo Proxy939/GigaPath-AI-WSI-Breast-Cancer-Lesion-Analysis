@@ -17,6 +17,7 @@ Usage:
         --features data/features_topk \
         --output visualizations/
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -28,6 +29,8 @@ from tqdm import tqdm
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import src.utils.openslide_setup
 
 from src.mil import AttentionMIL
 from src.explainability import HeatmapGenerator

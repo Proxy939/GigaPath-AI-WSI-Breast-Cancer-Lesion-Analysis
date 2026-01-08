@@ -17,6 +17,7 @@ Usage:
     # Resume after interruption
     python scripts/extract_features.py --input data/raw_wsi --output data/features --resume
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -27,6 +28,8 @@ import time
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import src.utils.openslide_setup
 
 from src.feature_extraction import FeatureExtractor
 from src.preprocessing import TileExtractor
