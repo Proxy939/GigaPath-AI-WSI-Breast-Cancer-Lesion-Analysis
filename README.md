@@ -12,7 +12,7 @@ Deep learning pipeline for Whole Slide Image (WSI) breast cancer classification 
 
 Complete end-to-end pipeline for WSI analysis:
 1. **Preprocessing**: Tissue detection & tile extraction
-2. **Feature Extraction**: ResNet50 embeddings with HDF5 caching
+2. **Feature Extraction**: Pretrained GigaPath embeddings (Foundation Model)
 3. **Top-K Sampling**: Intelligent tile selection (35-50% reduction)
 4. **MIL Classification**: Gated attention for slide-level prediction
 5. **Explainability**: Attention heatmaps for visual interpretation
@@ -76,7 +76,7 @@ python scripts/generate_heatmaps.py \
 ```
 WSI (.svs) → Tissue Detection → Tile Extraction (256×256)
     ↓
-ResNet50-ImageNet → Feature Extraction (2048-dim)
+Pretrained GigaPath Model → Feature Extraction (Batch-optimized)
     ↓
 Top-K Sampling (K=1000) → Feature Norm Ranking
     ↓
@@ -279,17 +279,17 @@ pip install openslide-bin
 
 **Backbone Architecture**:
 ```python
-ResNet50-ImageNet (pretrained)
+Pretrained GigaPath (Foundation Model)
     ↓
-Remove FC layer: model.fc = nn.Identity()
+Tile Embeddings
     ↓
-Output: (batch, 2048) embeddings
+Output: (batch, 2048) feature vectors
 ```
 
-**Why ResNet50?**
-- Pretrained on ImageNet → strong visual features
-- 2048-dim features → rich representation
-- Frozen weights → fast inference, no overfitting
+**Why Pretrained GigaPath?**
+- **Foundation Model**: Trained on 1.3 billion pathology images
+- **Domain Specific**: Captures histological patterns better than ImageNet models
+- **Rich Embeddings**: 2048-dim vectors enable robust slide-level classification
 
 **HDF5 Structure**:
 ```python
