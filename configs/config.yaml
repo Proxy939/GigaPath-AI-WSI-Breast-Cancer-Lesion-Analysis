@@ -25,6 +25,7 @@ preprocessing:
   formats:                    # Supported WSI formats
     - ".svs"
     - ".tiff"
+    - ".tif"
     - ".ndpi"
     - ".mrxs"
 
