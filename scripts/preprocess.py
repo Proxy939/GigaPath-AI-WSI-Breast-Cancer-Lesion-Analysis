@@ -142,12 +142,12 @@ def preprocess_slides(
             results.append(result)
             
             logger.info(
-                f"✓ {slide_name}: {result['num_tiles_kept']} tiles "
+                f"[OK] {slide_name}: {result['num_tiles_kept']} tiles "
                 f"(tissue coverage: {result['tissue_coverage']:.2%})"
             )
         
         except Exception as e:
-            logger.error(f"✗ Failed to process {slide_name}: {e}", exc_info=True)
+            logger.error(f"[FAIL] Failed to process {slide_name}: {e}", exc_info=True)
             failed_slides.append(slide_name)
     
     # Save summary
