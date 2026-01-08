@@ -59,6 +59,22 @@ def get_wsi_files(input_path: Path, extensions: List[str]) -> List[Path]:
         raise ValueError(f"Input path does not exist: {input_path}")
 
 
+def is_preprocessed_slide_dir(path: Path) -> bool:
+    """
+    Check if path is a preprocessed slide directory.
+    
+    Args:
+        path: Path to check
+    
+    Returns:
+        True if path contains tiles/ subdirectory and coordinates.csv
+    """
+    tiles_dir = path / "tiles"
+    coords_file = path / "coordinates.csv"
+    return tiles_dir.exists() and tiles_dir.is_dir() and coords_file.exists()
+
+
+
 def extract_features_from_slides(
     input_path: str,
     output_dir: str,
@@ -84,9 +100,93 @@ def extract_features_from_slides(
     
     logger.info(f"Found {len(wsi_files)} WSI files")
     
+    # If no WSI files, check for preprocessed slide directories
     if len(wsi_files) == 0:
-        # Check for subdirectories to provide helpful guidance
         if input_p.is_dir():
+            # Check for preprocessed slide directories
+            slide_dirs = [d for d in input_p.iterdir() if d.is_dir() and is_preprocessed_slide_dir(d)]
+            
+            if len(slide_dirs) > 0:
+                logger.info(f"Detected {len(slide_dirs)} preprocessed slide directories")
+                logger.info("Processing preprocessed tiles...")
+                
+                # Setup GPU monitor
+                gpu_monitor = GPUMonitor() if config['hardware']['gpu_id'] >= 0 else None
+                if gpu_monitor:
+                    gpu_monitor.log_memory_status()
+                
+                # Create feature extractor
+                feature_extractor = FeatureExtractor(
+                    model_name=config['feature_extraction']['backbone'],
+                    batch_size=config['feature_extraction']['batch_size'],
+                    use_amp=config['hardware']['mixed_precision']
+                )
+                
+                # Process slides
+                results = []
+                failed_slides = []
+                total_tiles = 0
+                start_time = time.time()
+                
+                for slide_dir in tqdm(slide_dirs, desc="Extracting features"):
+                    slide_name = slide_dir.name
+                    output_file = output_p / f"{slide_name}.h5"
+                    
+                    # Check if already processed (resume mode)
+                    if resume and output_file.exists():
+                        logger.info(f"Skipping {slide_name} (already processed)")
+                        continue
+                    
+                    logger.info(f"Processing: {slide_name}")
+                    
+                    try:
+                        slide_start = time.time()
+                        
+                        # Extract features from preprocessed tiles
+                        stats = feature_extractor.extract_features_from_tiles(
+                            tiles_dir=slide_dir / "tiles",
+                            coordinates_csv=slide_dir / "coordinates.csv",
+                            output_path=output_file,
+                            slide_name=slide_name
+                        )
+                        
+                        slide_time = time.time() - slide_start
+                        stats['processing_time_seconds'] = slide_time
+                        
+                        results.append(stats)
+                        total_tiles += stats['num_tiles']
+                        
+                        logger.info(
+                            f"[OK] {slide_name}: {stats['num_tiles']} tiles, "
+                            f"{stats['feature_dim']}-dim features, "
+                            f"{slide_time:.1f}s"
+                        )
+                        
+                        # Log GPU memory if available
+                        if gpu_monitor:
+                            gpu_monitor.log_memory_status()
+                    
+                    except Exception as e:
+                        logger.error(f"[FAIL] Failed to process {slide_name}: {e}", exc_info=True)
+                        failed_slides.append(slide_name)
+                
+                total_time = time.time() - start_time
+                
+                # Summary
+                logger.info("="*60)
+                logger.info("Feature Extraction Summary")
+                logger.info("="*60)
+                logger.info(f"Processed: {len(results)}/{len(slide_dirs)} slides")
+                logger.info(f"Total tiles: {total_tiles}")
+                logger.info(f"Total time: {total_time:.1f}s")
+                logger.info(f"Average time per slide: {total_time/len(results):.1f}s" if results else "N/A")
+                
+                if failed_slides:
+                    logger.warning(f"Failed slides: {', '.join(failed_slides)}")
+                
+                return
+            
+            # Fallback: no preprocessed dirs, just subdirectories
             subdirs = [d.name for d in input_p.iterdir() if d.is_dir()]
             if subdirs:
                 logger.info("No WSI files found at this level.")

@@ -194,6 +194,115 @@ class FeatureExtractor:
         
         return stats
     
+    def extract_features_from_tiles(
+        self,
+        tiles_dir: Path,
+        coordinates_csv: Path,
+        output_path: Path,
+        slide_name: str
+    ) -> Dict:
+        """
+        Extract features from preprocessed tiles saved to disk.
+        
+        Args:
+            tiles_dir: Directory containing PNG tiles
+            coordinates_csv: Path to coordinates.csv file
+            output_path: Path to save HDF5 file
+            slide_name: Name of the slide
+        
+        Returns:
+            Dictionary with extraction statistics
+        """
+        import pandas as pd
+        from PIL import Image
+        
+        logger.info(f"Extracting features from preprocessed tiles: {slide_name}")
+        
+        # Load coordinates
+        coords_df = pd.read_csv(coordinates_csv)
+        logger.info(f"Loaded {len(coords_df)} tile coordinates")
+        
+        # Get list of tile files
+        tile_files = sorted(list(Path(tiles_dir).glob("*.png")))
+        logger.info(f"Found {len(tile_files)} PNG tiles")
+        
+        if len(tile_files) == 0:
+            raise ValueError(f"No PNG tiles found in {tiles_dir}")
+        
+        # Extract features
+        features_list = []
+        coords_list = []
+        
+        # Process in batches
+        batch_tiles = []
+        batch_coords = []
+        
+        for tile_file in tqdm(tile_files, desc=f"Processing {slide_name}"):
+            # Parse coordinates from filename (e.g., "tile_1024_2048.png")
+            filename = tile_file.stem
+            parts = filename.split('_')
+            if len(parts) >= 3:
+                x_coord = int(parts[1])
+                y_coord = int(parts[2])
+            else:
+                logger.warning(f"Skipping tile with unexpected filename format: {filename}")
+                continue
+            
+            # Load tile image
+            tile_img = Image.open(tile_file).convert('RGB')
+            tile_array = np.array(tile_img)
+            
+            # Apply transforms
+            tile_tensor = self.transforms(tile_array)
+            batch_tiles.append(tile_tensor)
+            batch_coords.append((x_coord, y_coord))
+            
+            # Process batch when full
+            if len(batch_tiles) >= self.batch_size:
+                batch_features = self._extract_batch(batch_tiles)
+                features_list.extend(batch_features)
+                coords_list.extend(batch_coords)
+                
+                # Clear batch
+                batch_tiles = []
+                batch_coords = []
+        
+        # Process remaining tiles
+        if len(batch_tiles) > 0:
+            batch_features = self._extract_batch(batch_tiles)
+            features_list.extend(batch_features)
+            coords_list.extend(batch_coords)
+        
+        # Convert to arrays
+        features_array = np.array(features_list, dtype=np.float32)
+        coords_array = np.array(coords_list, dtype=np.int32)
+        
+        logger.info(f"Extracted {len(features_list)} tile features")
+        logger.info(f"Features shape: {features_array.shape}")
+        logger.info(f"Coordinates shape: {coords_array.shape}")
+        
+        # Save to HDF5
+        self._save_features_hdf5(
+            features=features_array,
+            coordinates=coords_array,
+            metadata={},  # Metadata could be loaded from metadata.json if needed
+            output_path=str(output_path),
+            slide_name=slide_name
+        )
+        
+        # Return statistics
+        stats = {
+            'slide_name': slide_name,
+            'num_tiles': len(features_list),
+            'feature_dim': self.feature_dim,
+            'features_shape': features_array.shape,
+            'coordinates_shape': coords_array.shape
+        }
+        
+        logger.info(f"[OK] Features saved to {output_path}")
+        
+        return stats
+    
     def _extract_batch(self, batch_tiles: List[torch.Tensor]) -> List[np.ndarray]:
         """
         Extract features from a batch of tiles.
