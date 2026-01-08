@@ -103,10 +103,20 @@ def generate_heatmap_for_slide(
     if wsi_path and Path(wsi_path).exists():
         thumbnail = load_wsi_thumbnail(wsi_path)
     else:
-        # Create black canvas with estimated size
+        # Create black canvas with downsampled size
         max_coord = coordinates.max(axis=0)
-        canvas_size = (int(max_coord[1]) + 512, int(max_coord[0]) + 512)
-        thumbnail = np.zeros((*canvas_size, 3), dtype=np.uint8)
+        width, height = int(max_coord[0]) + 512, int(max_coord[1]) + 512
+        aspect_ratio = width / height
+        
+        target_size = 2048
+        if width > height:
+            new_width = target_size
+            new_height = int(target_size / aspect_ratio)
+        else:
+            new_height = target_size
+            new_width = int(target_size * aspect_ratio)
+            
+        thumbnail = np.zeros((new_height, new_width, 3), dtype=np.uint8)
     
     # Create heatmap
     heatmap = heatmap_gen.create_heatmap(
@@ -235,7 +245,7 @@ def main():
         if features_path.is_file():
             hdf5_files = [features_path]
         else:
-            hdf5_files = sorted(list(features_path.glob('*.h5')))
+            hdf5_files = sorted(list(features_path.rglob('*.h5')))
         
         logger.info(f"Found {len(hdf5_files)} slides")
         
