@@ -248,24 +248,29 @@ class FeatureExtractor:
                 logger.warning(f"Skipping tile with unexpected filename format: {filename}")
                 continue
             
-            # Load tile image
-            tile_img = Image.open(tile_file).convert('RGB')
-            tile_array = np.array(tile_img)
-            
-            # Apply transforms
-            tile_tensor = self.transforms(tile_array)
-            batch_tiles.append(tile_tensor)
-            batch_coords.append((x_coord, y_coord))
-            
-            # Process batch when full
-            if len(batch_tiles) >= self.batch_size:
-                batch_features = self._extract_batch(batch_tiles)
-                features_list.extend(batch_features)
-                coords_list.extend(batch_coords)
+            try:
+                # Load tile image
+                tile_img = Image.open(tile_file).convert('RGB')
+                tile_array = np.array(tile_img)
                 
-                # Clear batch
-                batch_tiles = []
-                batch_coords = []
+                # Apply transforms
+                tile_tensor = self.transforms(tile_array)
+                batch_tiles.append(tile_tensor)
+                batch_coords.append((x_coord, y_coord))
+                
+                # Process batch when full
+                if len(batch_tiles) >= self.batch_size:
+                    batch_features = self._extract_batch(batch_tiles)
+                    features_list.extend(batch_features)
+                    coords_list.extend(batch_coords)
+                    
+                    # Clear batch
+                    batch_tiles = []
+                    batch_coords = []
+            
+            except Exception as e:
+                logger.warning(f"Skipping corrupted tile {filename}: {e}")
+                continue
         
         # Process remaining tiles
         if len(batch_tiles) > 0:
