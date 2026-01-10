@@ -20,6 +20,7 @@ Usage:
 
 import argparse
 import sys
+import shutil
 from pathlib import Path
 from typing import List
 from tqdm import tqdm
@@ -133,9 +134,11 @@ def extract_features_from_slides(
                     output_file = output_p / f"{slide_name}.h5"
                     
                     # Check if already processed (resume mode)
-                    if resume and output_file.exists():
-                        logger.info(f"Skipping {slide_name} (already processed)")
-                        continue
+                    if resume:
+                        done_marker = output_p / f"{slide_name}.done"
+                        if output_file.exists() and done_marker.exists():
+                            logger.info(f"[RESUME] Skipping {slide_name} (already processed)")
+                            continue
                     
                     logger.info(f"Processing: {slide_name}")
                     
@@ -161,6 +164,20 @@ def extract_features_from_slides(
                             f"{stats['feature_dim']}-dim features, "
                             f"{slide_time:.1f}s"
                         )
+                        
+                        # Create .done marker after successful feature extraction
+                        done_marker = output_p / f"{slide_name}.done"
+                        done_marker.touch()
+                        logger.info(f"[RESUME] Completed slide: {slide_name}")
+                        
+                        # Auto tile cleanup
+                        tiles_dir = slide_dir / "tiles"
+                        if tiles_dir.exists():
+                            try:
+                                shutil.rmtree(tiles_dir, ignore_errors=True)
+                                logger.info(f"[CLEANUP] Deleted tiles for slide: {slide_name}")
+                            except Exception as e:
+                                logger.warning(f"[CLEANUP] Could not delete tiles for {slide_name}: {e}")
                         
                         # Log GPU memory if available
                         if gpu_monitor:
@@ -229,9 +246,11 @@ def extract_features_from_slides(
         output_file = output_p / f"{slide_name}.h5"
         
         # Check if already processed (resume mode)
-        if resume and output_file.exists():
-            logger.info(f"Skipping {slide_name} (already processed)")
-            continue
+        if resume:
+            done_marker = output_p / f"{slide_name}.done"
+            if output_file.exists() and done_marker.exists():
+                logger.info(f"[RESUME] Skipping {slide_name} (already processed)")
+                continue
         
         logger.info(f"Processing: {slide_name}")
         
@@ -256,6 +275,21 @@ def extract_features_from_slides(
                 f"{stats['feature_dim']}-dim features, "
                 f"{slide_time:.1f}s"
             )
+            
+            # Create .done marker after successful feature extraction  
+            done_marker = output_p / f"{slide_name}.done"
+            done_marker.touch()
+            logger.info(f"[RESUME] Completed slide: {slide_name}")
+            
+            # Auto tile cleanup (for saved tiles from preprocessing)
+            # Note: In production mode tiles are not saved, but check anyway
+            tile_dir = Path(config['paths']['processed_tiles']) / slide_name / "tiles"
+            if tile_dir.exists():
+                try:
+                    shutil.rmtree(tile_dir, ignore_errors=True)
+                    logger.info(f"[CLEANUP] Deleted tiles for slide: {slide_name}")
+                except Exception as e:
+                    logger.warning(f"[CLEANUP] Could not delete tiles for {slide_name}: {e}")
             
             # Log GPU memory if available
             if gpu_monitor:

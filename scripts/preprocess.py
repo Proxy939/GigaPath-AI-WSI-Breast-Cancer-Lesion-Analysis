@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 import sys
+import shutil
 from pathlib import Path
 from typing import List
 from tqdm import tqdm
@@ -29,6 +30,9 @@ from src.utils import setup_logger, load_config, set_seed
 from src.utils.logger import get_logger
 
 logger = None  # Will be initialized in main()
+
+# Disk space guard constant
+MIN_FREE_SPACE_GB = 50
 
 
 def get_wsi_files(input_path: Path, extensions: List[str]) -> List[Path]:
@@ -80,6 +84,16 @@ def preprocess_slides(
     input_p = Path(input_path)
     output_p = Path(output_dir)
     output_p.mkdir(parents=True, exist_ok=True)
+    
+    # Disk space guard
+    disk_usage = shutil.disk_usage(output_p)
+    free_gb = disk_usage.free / (1024**3)
+    if free_gb < MIN_FREE_SPACE_GB:
+        logger.error(f"[DISK GUARD] Insufficient disk space: {free_gb:.1f} GB free")
+        logger.error(f"[DISK GUARD] Required minimum: {MIN_FREE_SPACE_GB} GB")
+        logger.error("Aborting preprocessing to prevent failure.")
+        return
+    logger.info(f"[DISK GUARD] Disk check passed: {free_gb:.1f} GB free")
     
     # Get WSI files
     wsi_extensions = config['preprocessing'].get('formats', ['.svs', '.tiff', '.ndpi'])
@@ -145,10 +159,13 @@ def preprocess_slides(
         slide_name = wsi_file.stem
         
         # Check if already processed (resume mode)
-        # Check if already processed (resume mode)
-        slide_output = output_p / slide_name
         if resume:
-            if slide_output.exists() and ((slide_output / '.done').exists() or (slide_output / 'metadata.json').exists()):
+            # Check feature file and .done marker in features directory
+            features_dir = Path(config['paths']['features'])
+            feature_file = features_dir / f"{slide_name}.h5"
+            done_marker = features_dir / f"{slide_name}.done"
+            
+            if feature_file.exists() and done_marker.exists():
                 logger.info(f"[RESUME] Skipping already processed slide: {slide_name}")
                 continue
         
@@ -174,9 +191,6 @@ def preprocess_slides(
                 f"[OK] {slide_name}: {result['num_tiles_kept']} tiles "
                 f"(tissue coverage: {result['tissue_coverage']:.2%})"
             )
-            
-            # Mark slide as completed
-            (slide_output / '.done').touch()
         
         except Exception as e:
             logger.error(f"[FAIL] Failed to process {slide_name}: {e}", exc_info=True)
