@@ -117,10 +117,11 @@ def preprocess_slides(
         slide_name = wsi_file.stem
         
         # Check if already processed (resume mode)
+        # Check if already processed (resume mode)
+        slide_output = output_p / slide_name
         if resume:
-            slide_output = output_p / slide_name
-            if slide_output.exists() and (slide_output / 'metadata.json').exists():
-                logger.info(f"Skipping {slide_name} (already processed)")
+            if slide_output.exists() and ((slide_output / '.done').exists() or (slide_output / 'metadata.json').exists()):
+                logger.info(f"[RESUME] Skipping already processed slide: {slide_name}")
                 continue
         
         logger.info(f"Processing: {slide_name}")
@@ -145,6 +146,9 @@ def preprocess_slides(
                 f"[OK] {slide_name}: {result['num_tiles_kept']} tiles "
                 f"(tissue coverage: {result['tissue_coverage']:.2%})"
             )
+            
+            # Mark slide as completed
+            (slide_output / '.done').touch()
         
         except Exception as e:
             logger.error(f"[FAIL] Failed to process {slide_name}: {e}", exc_info=True)
