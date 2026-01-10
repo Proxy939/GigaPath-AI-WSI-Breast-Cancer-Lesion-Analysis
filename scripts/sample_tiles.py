@@ -22,7 +22,20 @@ import sys
 from pathlib import Path
 from typing import List
 from tqdm import tqdm
+import torch
 import json
+
+# === GPU ENFORCEMENT ===
+if not torch.cuda.is_available():
+    raise RuntimeError("CUDA NOT AVAILABLE — GPU REQUIRED FOR TOP-K SAMPLING")
+
+# Strict check: no CPU fallback allowed
+if torch.device("cuda").type != "cuda":
+    raise RuntimeError("CUDA DEVICE ERROR")
+
+gpu_name = torch.cuda.get_device_name(0)
+print(f"[GPU ONLY] Top-K sampling locked to CUDA: {gpu_name}")
+# =======================
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))

@@ -51,8 +51,11 @@ class TileRanker:
             Attention scores (N,) - higher is better
         """
         if device is None:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            device = torch.device('cuda')
         
+        if device.type != 'cuda':
+             raise ValueError(f"Device must be CUDA, got {device.type}")
+
         # Convert to tensor
         features_tensor = torch.from_numpy(features).float().to(device)
         
