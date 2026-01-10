@@ -49,11 +49,11 @@ def get_wsi_files(input_path: Path, extensions: List[str]) -> List[Path]:
             raise ValueError(f"File {input_path} is not a supported WSI format")
     
     elif input_path.is_dir():
-        wsi_files = []
+        wsi_files = set()
         for ext in extensions:
-            wsi_files.extend(input_path.glob(f"*{ext}"))
-            wsi_files.extend(input_path.glob(f"*{ext.upper()}"))
-        return sorted(wsi_files)
+            wsi_files.update(input_path.glob(f"*{ext}"))
+            wsi_files.update(input_path.glob(f"*{ext.upper()}"))
+        return sorted(list(wsi_files))
     
     else:
         raise ValueError(f"Input path does not exist: {input_path}")
@@ -64,7 +64,8 @@ def preprocess_slides(
     output_dir: str,
     config: dict,
     save_tiles: bool = False,
-    resume: bool = False
+    resume: bool = False,
+    slides_file: str = None
 ):
     """
     Preprocess WSI slides.
@@ -84,6 +85,33 @@ def preprocess_slides(
     wsi_extensions = config['preprocessing'].get('formats', ['.svs', '.tiff', '.ndpi'])
     wsi_files = get_wsi_files(input_p, wsi_extensions)
     
+    if slides_file:
+        slides_file_p = Path(slides_file)
+        if slides_file_p.exists():
+            # Handle potential BOM (UTF-16LE from PowerShell)
+            try:
+                raw_content = slides_file_p.read_bytes()
+                if raw_content.startswith(b'\xff\xfe'):
+                    content = raw_content.decode('utf-16')
+                else:
+                    content = raw_content.decode('utf-8', errors='ignore')
+            except Exception as e:
+                logger.error(f"Error reading slides file: {e}")
+                return
+
+            # support space or newline separated
+            target_slides = set(content.replace('\n', ' ').split())
+        
+            wsi_files = [f for f in wsi_files if f.stem in target_slides]
+            logger.info(f"Filtered to {len(wsi_files)} slides from {slides_file}")
+            
+            if len(wsi_files) == 0:
+                 logger.warning(f"No matching slides found from {slides_file}")
+                 return
+        else:
+            logger.warning(f"Slides file not found: {slides_file}")
+            return
+
     logger.info(f"Found {len(wsi_files)} WSI files")
     
     if len(wsi_files) == 0:
@@ -225,6 +253,12 @@ def main():
         action='store_true',
         help='Skip already processed slides'
     )
+
+    parser.add_argument(
+        '--slides_file',
+        type=str,
+        help='Path to file containing list of slide names to process'
+    )
     
     args = parser.parse_args()
     
@@ -269,7 +303,8 @@ def main():
             output_dir=args.output,
             config=config,
             save_tiles=args.save_tiles,
-            resume=args.resume
+            resume=args.resume,
+            slides_file=args.slides_file
         )
         
         logger.info("Preprocessing complete!")
