@@ -219,15 +219,15 @@ slide_003,0
 
 **Minimum**:
 - Python 3.10+
-- 16 GB RAM
-- NVIDIA GPU with 8 GB VRAM (CUDA 11.8+)
-- 100 GB free disk space
+- 8 GB RAM
+- NVIDIA GPU with 2 GB VRAM (CUDA 11.8+)
+
 
 **Recommended**:
 - Python 3.10
-- 32 GB RAM
+- 16 GB RAM
 - NVIDIA RTX 4070 or better
-- 500 GB SSD
+  
 
 ---
 
