@@ -4,7 +4,7 @@ Ranks tiles by informativeness for efficient MIL training.
 """
 import numpy as np
 import torch
-from typing import Optional
+from typing import Optional, Tuple
 
 from ..utils.logger import get_logger
 
@@ -30,6 +30,29 @@ class TileRanker:
         scores = np.linalg.norm(features, axis=1)
         logger.debug(f"Feature norm ranking: min={scores.min():.2f}, max={scores.max():.2f}, mean={scores.mean():.2f}")
         return scores
+    
+    @staticmethod
+    def normalize_scores(scores: np.ndarray) -> np.ndarray:
+        """
+        Normalize scores to [0, 1] range using min-max normalization.
+        
+        Args:
+            scores: Raw scores (N,)
+        
+        Returns:
+            Normalized scores (N,) in [0, 1] range
+        """
+        min_score = np.min(scores)
+        max_score = np.max(scores)
+        
+        # Handle edge case: all scores are identical
+        if max_score - min_score < 1e-10:
+            logger.warning("All scores are identical, returning uniform normalized scores")
+            return np.ones_like(scores)
+        
+        normalized = (scores - min_score) / (max_score - min_score)
+        logger.debug(f"Normalized scores: min={normalized.min():.4f}, max={normalized.max():.4f}")
+        return normalized
     
     @staticmethod
     def rank_by_attention(
@@ -70,6 +93,64 @@ class TileRanker:
         
         logger.debug(f"Attention ranking: min={scores.min():.4f}, max={scores.max():.4f}")
         return scores
+    
+    @staticmethod
+    def rank_by_weighted_combination(
+        features: np.ndarray,
+        mil_model: torch.nn.Module,
+        alpha: float = 0.7,
+        device: Optional[torch.device] = None
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Rank tiles by weighted combination of attention and L2-norm scores.
+        
+        Best-practice approach (Strategy-1):
+        final_score = α * attention_score + (1 - α) * l2_norm_score
+        
+        Both scores are normalized to [0, 1] before combining.
+        
+        Args:
+            features: Feature array (N, feature_dim)
+            mil_model: Trained MIL model with attention mechanism
+            alpha: Weight for attention scores (default: 0.7)
+            device: Torch device
+        
+        Returns:
+            Tuple of (final_scores, attention_scores, l2_norm_scores)
+            - final_scores: Weighted combination (N,)
+            - attention_scores: Normalized attention weights (N,)
+            - l2_norm_scores: Normalized L2 norms (N,)
+        """
+        if not 0.0 <= alpha <= 1.0:
+            raise ValueError(f"Alpha must be in [0, 1], got {alpha}")
+        
+        if device is None:
+            device = torch.device('cuda')
+        
+        logger.info(f"Computing weighted scores with α={alpha:.2f}")
+        
+        # Compute attention scores
+        attention_scores_raw = TileRanker.rank_by_attention(features, mil_model, device)
+        attention_scores = TileRanker.normalize_scores(attention_scores_raw)
+        logger.debug(f"Attention scores normalized: shape={attention_scores.shape}")
+        
+        # Compute L2-norm scores
+        l2_norm_scores_raw = TileRanker.rank_by_feature_norm(features)
+        l2_norm_scores = TileRanker.normalize_scores(l2_norm_scores_raw)
+        logger.debug(f"L2-norm scores normalized: shape={l2_norm_scores.shape}")
+        
+        # Weighted combination
+        final_scores = alpha * attention_scores + (1 - alpha) * l2_norm_scores
+        
+        logger.info(
+            f"Final scores: min={final_scores.min():.4f}, "
+            f"max={final_scores.max():.4f}, mean={final_scores.mean():.4f}"
+        )
+        logger.info(
+            f"Score composition: {alpha:.0%} attention + {(1-alpha):.0%} L2-norm"
+        )
+        
+        return final_scores, attention_scores, l2_norm_scores
     
     @staticmethod
     def select_top_k(scores: np.ndarray, k: int) -> np.ndarray:

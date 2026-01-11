@@ -4,8 +4,9 @@ Reduces computational cost by keeping only most informative tiles.
 """
 import h5py
 import numpy as np
+import torch
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 from .tile_ranker import TileRanker
 from ..utils.logger import get_logger
@@ -16,17 +17,39 @@ logger = get_logger(__name__)
 class TopKSelector:
     """Select top-K tiles from HDF5 feature files."""
     
-    def __init__(self, k: int = 1000, ranking_method: str = 'feature_norm'):
+    def __init__(
+        self, 
+        k: int = 1000, 
+        ranking_method: str = 'feature_norm',
+        alpha: float = 0.7,
+        mil_model: Optional[torch.nn.Module] = None,
+        device: Optional[torch.device] = None
+    ):
         """
         Initialize Top-K selector.
         
         Args:
             k: Number of top tiles to select
-            ranking_method: Ranking method ('feature_norm' or 'attention')
+            ranking_method: 'feature_norm', 'attention', or 'weighted'
+            alpha: Weight for attention in weighted method (default: 0.7)
+            mil_model: Trained MIL model (required for 'attention' or 'weighted')
+            device: Torch device (required for 'attention' or 'weighted')
         """
         self.k = k
         self.ranking_method = ranking_method
+        self.alpha = alpha
+        self.mil_model = mil_model
+        self.device = device
         self.ranker = TileRanker()
+        
+        # Validate parameters for attention/weighted methods
+        if ranking_method in ['attention', 'weighted']:
+            if mil_model is None:
+                raise ValueError(f"{ranking_method} method requires mil_model")
+            if device is None:
+                raise ValueError(f"{ranking_method} method requires device")
+            if device.type != 'cuda':
+                raise ValueError(f"{ranking_method} method requires CUDA device, got {device.type}")
     
     def select_top_k_from_hdf5(
         self,
@@ -52,22 +75,27 @@ class TopKSelector:
         
         logger.info(f"Loaded {original_num_tiles} tiles")
         
-        # Rank tiles
-        scores = self._rank_tiles(features)
+        # Rank tiles (returns dict with score arrays)
+        score_dict = self._rank_tiles(features)
         
-        # Select top-K
-        top_k_indices = self.ranker.select_top_k(scores, self.k)
+        # Select top-K based on final scores
+        final_scores = score_dict['final_scores']
+        top_k_indices = self.ranker.select_top_k(final_scores, self.k)
         selected_k = len(top_k_indices)
         
         # Filter features and coordinates
         filtered_features = features[top_k_indices]
         filtered_coords = coordinates[top_k_indices]
-        filtered_scores = scores[top_k_indices]
+        
+        # Filter all score types
+        filtered_score_dict = {}
+        for score_name, score_array in score_dict.items():
+            filtered_score_dict[score_name] = score_array[top_k_indices]
         
         logger.info(f"Selected {selected_k} / {original_num_tiles} tiles ({selected_k/original_num_tiles:.1%})")
         
         # Compute score statistics (storage optimization)
-        score_stats = self.ranker.get_score_stats(filtered_scores)
+        score_stats = self.ranker.get_score_stats(filtered_score_dict['final_scores'])
         
         # Update metadata
         output_metadata = metadata.copy()
@@ -81,6 +109,7 @@ class TopKSelector:
         self._save_filtered_hdf5(
             features=filtered_features,
             coordinates=filtered_coords,
+            score_dict=filtered_score_dict,
             metadata=output_metadata,
             output_path=output_path
         )
@@ -123,7 +152,7 @@ class TopKSelector:
         
         return features, coordinates, metadata
     
-    def _rank_tiles(self, features: np.ndarray) -> np.ndarray:
+    def _rank_tiles(self, features: np.ndarray) -> Dict[str, np.ndarray]:
         """
         Rank tiles using specified method.
         
@@ -131,25 +160,43 @@ class TopKSelector:
             features: Feature array (N, feature_dim)
         
         Returns:
-            Ranking scores (N,)
+            Dictionary with score arrays:
+            - 'final_scores': Scores used for ranking (N,)
+            - 'attention_scores': Attention weights (N,) [if applicable]
+            - 'l2_norm_scores': L2 norms (N,) [if applicable]
         """
         if self.ranking_method == 'feature_norm':
-            scores = self.ranker.rank_by_feature_norm(features)
+            final_scores = self.ranker.rank_by_feature_norm(features)
+            return {'final_scores': final_scores}
+        
         elif self.ranking_method == 'attention':
-            # Placeholder for attention-based ranking (Phase 3)
-            raise NotImplementedError(
-                "Attention-based ranking requires trained MIL model (Phase 3). "
-                "Use 'feature_norm' for now."
+            attention_scores = self.ranker.rank_by_attention(
+                features, self.mil_model, self.device
             )
+            return {
+                'final_scores': attention_scores,
+                'attention_scores': attention_scores
+            }
+        
+        elif self.ranking_method == 'weighted':
+            final_scores, attention_scores, l2_norm_scores = \
+                self.ranker.rank_by_weighted_combination(
+                    features, self.mil_model, self.alpha, self.device
+                )
+            return {
+                'final_scores': final_scores,
+                'attention_scores': attention_scores,
+                'l2_norm_scores': l2_norm_scores
+            }
+        
         else:
             raise ValueError(f"Unknown ranking method: {self.ranking_method}")
-        
-        return scores
     
     def _save_filtered_hdf5(
         self,
         features: np.ndarray,
         coordinates: np.ndarray,
+        score_dict: Dict[str, np.ndarray],
         metadata: Dict,
         output_path: str
     ):
@@ -159,6 +206,7 @@ class TopKSelector:
         Args:
             features: Filtered feature array (K, feature_dim)
             coordinates: Filtered coordinate array (K, 2)
+            score_dict: Dictionary of score arrays
             metadata: Metadata dictionary
             output_path: Path to output HDF5 file
         """
@@ -182,6 +230,31 @@ class TopKSelector:
                 compression_opts=4
             )
             
+            # Save score arrays as datasets
+            if 'attention_scores' in score_dict:
+                f.create_dataset(
+                    'attention_scores',
+                    data=score_dict['attention_scores'],
+                    compression='gzip',
+                    compression_opts=4
+                )
+            
+            if 'l2_norm_scores' in score_dict:
+                f.create_dataset(
+                    'l2_norm_scores',
+                    data=score_dict['l2_norm_scores'],
+                    compression='gzip',
+                    compression_opts=4
+                )
+            
+            # Always save final scores
+            f.create_dataset(
+                'final_scores',
+                data=score_dict['final_scores'],
+                compression='gzip',
+                compression_opts=4
+            )
+            
             # Add metadata to features dataset
             for key in ['slide_name', 'model_name', 'feature_dim', 'magnification']:
                 if key in metadata:
@@ -192,7 +265,12 @@ class TopKSelector:
             features_ds.attrs['selected_k'] = metadata['selected_k']
             features_ds.attrs['num_tiles'] = metadata['selected_k']  # Updated count
             features_ds.attrs['ranking_method'] = metadata['ranking_method']
+            features_ds.attrs['sampling_method'] = self.ranking_method
             features_ds.attrs['reduction_ratio'] = metadata['reduction_ratio']
+            
+            # Add alpha if using weighted method
+            if self.ranking_method == 'weighted':
+                features_ds.attrs['alpha'] = self.alpha
             
             # Add score statistics (storage optimized)
             for stat_key, stat_value in metadata['score_stats'].items():

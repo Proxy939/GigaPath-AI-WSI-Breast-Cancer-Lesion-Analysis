@@ -41,10 +41,43 @@ print(f"[GPU ONLY] Top-K sampling locked to CUDA: {gpu_name}")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.sampling import TopKSelector
+from src.mil import AttentionMIL
 from src.utils import setup_logger, load_config, set_seed
 from src.utils.logger import get_logger
 
 logger = None  # Will be initialized in main()
+
+
+def load_mil_model(checkpoint_path: str, device: torch.device) -> AttentionMIL:
+    """
+    Load trained MIL model for attention-based ranking.
+    
+    Args:
+        checkpoint_path: Path to model checkpoint
+        device: CUDA device
+    
+    Returns:
+        Loaded MIL model in eval mode
+    """
+    logger.info(f"Loading MIL model from {checkpoint_path}")
+    
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    
+    # Create model with same architecture
+    model = AttentionMIL(
+        input_dim=2048,
+        hidden_dim=512,
+        attn_dim=256,
+        num_classes=2,
+        dropout=0.25
+    )
+    
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.to(device)
+    model.eval()
+    
+    logger.info(f"✓ Model loaded (epoch: {checkpoint['epoch']})")
+    return model
 
 
 def get_hdf5_files(input_path: Path) -> List[Path]:
@@ -68,6 +101,9 @@ def sample_top_k_from_files(
     output_dir: str,
     k: int,
     ranking_method: str,
+    alpha: float = 0.7,
+    mil_model: torch.nn.Module = None,
+    device: torch.device = None,
     resume: bool = False
 ):
     """
@@ -77,7 +113,10 @@ def sample_top_k_from_files(
         input_path: Path to HDF5 file or directory
         output_dir: Output directory for sampled HDF5 files
         k: Number of top tiles to select
-        ranking_method: Ranking method ('feature_norm' or 'attention')
+        ranking_method: 'feature_norm', 'attention', or 'weighted'
+        alpha: Weight for attention in weighted method
+        mil_model: Trained MIL model (for attention/weighted)
+        device: CUDA device (for attention/weighted)
         resume: If True, skip already processed files
     """
     input_p = Path(input_path)
@@ -94,7 +133,13 @@ def sample_top_k_from_files(
         return
     
     # Create Top-K selector
-    selector = TopKSelector(k=k, ranking_method=ranking_method)
+    selector = TopKSelector(
+        k=k,
+        ranking_method=ranking_method,
+        alpha=alpha,
+        mil_model=mil_model,
+        device=device
+    )
     
     # Process files
     results = []
@@ -220,8 +265,21 @@ def main():
     parser.add_argument(
         '--ranking-method',
         type=str,
-        choices=['feature_norm', 'attention'],
+        choices=['feature_norm', 'attention', 'weighted'],
         help='Ranking method (overrides config)'
+    )
+    
+    parser.add_argument(
+        '--model',
+        type=str,
+        help='Path to trained MIL model (required for attention/weighted methods)'
+    )
+    
+    parser.add_argument(
+        '--alpha',
+        type=float,
+        default=0.7,
+        help='Weight for attention in weighted method (default: 0.7)'
     )
     
     parser.add_argument(
@@ -266,8 +324,23 @@ def main():
     logger.info(f"Output: {args.output}")
     logger.info(f"K value: {k}")
     logger.info(f"Ranking method: {ranking_method}")
+    if ranking_method == 'weighted':
+        logger.info(f"Alpha (attention weight): {args.alpha}")
+    if ranking_method in ['attention', 'weighted']:
+        logger.info(f"MIL model: {args.model}")
     logger.info(f"Resume: {args.resume}")
     logger.info("="*60)
+    
+    # Load MIL model if needed
+    mil_model = None
+    device = None
+    if ranking_method in ['attention', 'weighted']:
+        if not args.model:
+            logger.error(f"{ranking_method} method requires --model argument")
+            sys.exit(1)
+        
+        device = torch.device('cuda')
+        mil_model = load_mil_model(args.model, device)
     
     # Run Top-K sampling
     try:
@@ -276,6 +349,9 @@ def main():
             output_dir=args.output,
             k=k,
             ranking_method=ranking_method,
+            alpha=args.alpha,
+            mil_model=mil_model,
+            device=device,
             resume=args.resume
         )
         
