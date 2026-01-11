@@ -363,6 +363,12 @@ def main():
     args = parser.parse_args()
     
     # ========================================================================
+    # ENSURE OUTPUT DIRECTORY EXISTS (PREVENT SILENT FAILURES)
+    # ========================================================================
+    output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # ========================================================================
     # STEP 1: GPU ENFORCEMENT (CRITICAL - NO CPU FALLBACK)
     # ========================================================================
     try:
@@ -393,6 +399,7 @@ def main():
     logger.info(f"Features directory:  {args.features}")
     logger.info(f"Labels file:         {args.labels}")
     logger.info(f"Output directory:    {args.output}")
+    logger.info(f"Evaluation output directory verified: {output_dir.absolute()}")
     logger.info("="*60)
     
     try:
