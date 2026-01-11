@@ -125,15 +125,27 @@ def run_inference(
             # Run inference
             prediction_dict = model.predict_slide(features, return_attention=False)
             
+            # Calculate confidence percentage
+            probability = prediction_dict['probability']
+            confidence_percent = probability * 100.0
+            
+            # Interpretation (research-grade, not clinical)
+            label = prediction_dict['prediction']
+            if label == 1:
+                interpretation = f"Malignant ({confidence_percent:.1f}% confidence)"
+            else:
+                interpretation = f"Benign ({100.0 - confidence_percent:.1f}% confidence)"
+            
             results.append({
                 'slide_name': slide_name,
                 'predicted_label': prediction_dict['prediction'],
-                'probability': prediction_dict['probability'],
+                'probability': probability,
+                'confidence_percent': confidence_percent,
+                'interpretation': interpretation,
                 'logit': prediction_dict['logit']
             })
             
-            logger.debug(f"{slide_name}: Label={prediction_dict['prediction']}, "
-                        f"Prob={prediction_dict['probability']:.4f}")
+            logger.debug(f"{slide_name}: {interpretation}")
         
         except Exception as e:
             logger.error(f"Failed to process {slide_name}: {e}")

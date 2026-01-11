@@ -310,7 +310,7 @@ class FeatureExtractor:
     
     def _extract_batch(self, batch_tiles: List[torch.Tensor]) -> List[np.ndarray]:
         """
-        Extract features from a batch of tiles.
+        Extract features from a batch of tiles with enforced AMP and inference mode.
         
         Args:
             batch_tiles: List of tile tensors
@@ -321,16 +321,18 @@ class FeatureExtractor:
         # Stack into batch
         batch = torch.stack(batch_tiles).to(self.device)
         
-        # Extract features
-        with torch.no_grad():
+        # ENFORCED: AMP + Inference Mode (no gradients, memory efficient)
+        with torch.inference_mode():  # Guaranteed no grad tracking
             if self.use_amp and torch.cuda.is_available():
-                with torch.cuda.amp.autocast():
+                # Enforced automatic mixed precision
+                with torch.cuda.amp.autocast(dtype=torch.float16):
                     features = self.model(batch)
             else:
+                # Fallback to float32 (should not happen with GPU enforcement)
                 features = self.model(batch)
         
-        # Convert to numpy
-        features_np = features.cpu().numpy()
+        # Convert to numpy float32 for consistency
+        features_np = features.cpu().float().numpy()
         
         return list(features_np)
     

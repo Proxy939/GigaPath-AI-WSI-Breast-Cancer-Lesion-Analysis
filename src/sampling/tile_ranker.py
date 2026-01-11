@@ -15,7 +15,41 @@ class TileRanker:
     """Rank tiles by informativeness."""
     
     @staticmethod
-    def rank_by_feature_norm(features: np.ndarray) -> np.ndarray:
+    def normalize_features(features: np.ndarray) -> np.ndarray:
+        """
+        L2-normalize feature vectors to unit norm.
+        
+        CRITICAL for reproducibility: Prevents scale bias in ranking.
+        Each feature vector is normalized independently: f_norm = f / ||f||_2
+        
+        Args:
+            features: Feature array (N, feature_dim)
+        
+        Returns:
+            L2-normalized features (N, feature_dim) with unit norm
+        """
+        # Compute L2 norms
+        norms = np.linalg.norm(features, axis=1, keepdims=True)
+        
+        # Prevent division by zero (should never happen with real features)
+        norms = np.maximum(norms, 1e-12)
+        
+        # Normalize
+        normalized_features = features / norms
+        
+        # Verify unit norms (debug)
+        verify_norms = np.linalg.norm(normalized_features, axis=1)
+        logger.debug(f"Feature normalization: mean_norm={verify_norms.mean():.6f}, std_norm={verify_norms.std():.6f}")
+        
+        # Log statistics
+        logger.info(f"Normalized {features.shape[0]} features to unit L2 norm")
+        logger.debug(f"  Original norm range: [{norms.min():.2f}, {norms.max():.2f}]")
+        logger.debug(f"  Normalized norm check: [{verify_norms.min():.6f}, {verify_norms.max():.6f}]")
+        
+        return normalized_features
+    
+    @staticmethod
+    def rank_by_feature_norm(features: np.ndarray, normalize_first: bool = True) -> np.ndarray:
         """
         Rank tiles by L2 norm of feature vectors.
         
@@ -23,10 +57,16 @@ class TileRanker:
         
         Args:
             features: Feature array (N, feature_dim)
+            normalize_first: If True, normalize features before ranking (recommended for reproducibility)
         
         Returns:
             Ranking scores (N,) - higher is better
         """
+        # Apply normalization if requested
+        if normalize_first:
+            features = TileRanker.normalize_features(features)
+            logger.debug("Features normalized before ranking (reproducible mode)")
+        
         scores = np.linalg.norm(features, axis=1)
         logger.debug(f"Feature norm ranking: min={scores.min():.2f}, max={scores.max():.2f}, mean={scores.mean():.2f}")
         return scores

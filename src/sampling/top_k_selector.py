@@ -23,7 +23,8 @@ class TopKSelector:
         ranking_method: str = 'feature_norm',
         alpha: float = 0.7,
         mil_model: Optional[torch.nn.Module] = None,
-        device: Optional[torch.device] = None
+        device: Optional[torch.device] = None,
+        normalize_features: bool = True
     ):
         """
         Initialize Top-K selector.
@@ -34,12 +35,14 @@ class TopKSelector:
             alpha: Weight for attention in weighted method (default: 0.7)
             mil_model: Trained MIL model (required for 'attention' or 'weighted')
             device: Torch device (required for 'attention' or 'weighted')
+            normalize_features: If True, L2-normalize features before ranking (default: True)
         """
         self.k = k
         self.ranking_method = ranking_method
         self.alpha = alpha
         self.mil_model = mil_model
         self.device = device
+        self.normalize_features = normalize_features
         self.ranker = TileRanker()
         
         # Validate parameters for attention/weighted methods
@@ -50,6 +53,12 @@ class TopKSelector:
                 raise ValueError(f"{ranking_method} method requires device")
             if device.type != 'cuda':
                 raise ValueError(f"{ranking_method} method requires CUDA device, got {device.type}")
+        
+        # Log normalization setting
+        if normalize_features:
+            logger.info("Feature normalization ENABLED (reproducible mode)")
+        else:
+            logger.warning("Feature normalization DISABLED (legacy mode)")
     
     def select_top_k_from_hdf5(
         self,
@@ -104,6 +113,7 @@ class TopKSelector:
         output_metadata['ranking_method'] = self.ranking_method
         output_metadata['reduction_ratio'] = 1 - (selected_k / original_num_tiles)
         output_metadata['score_stats'] = score_stats
+        output_metadata['features_normalized'] = self.normalize_features  # Track normalization
         
         # Save filtered HDF5
         self._save_filtered_hdf5(
@@ -154,7 +164,7 @@ class TopKSelector:
     
     def _rank_tiles(self, features: np.ndarray) -> Dict[str, np.ndarray]:
         """
-        Rank tiles using specified method.
+        Rank tiles using specified method with optional normalization.
         
         Args:
             features: Feature array (N, feature_dim)
@@ -166,7 +176,7 @@ class TopKSelector:
             - 'l2_norm_scores': L2 norms (N,) [if applicable]
         """
         if self.ranking_method == 'feature_norm':
-            final_scores = self.ranker.rank_by_feature_norm(features)
+            final_scores = self.ranker.rank_by_feature_norm(features, normalize_first=self.normalize_features)
             return {'final_scores': final_scores}
         
         elif self.ranking_method == 'attention':
@@ -267,6 +277,7 @@ class TopKSelector:
             features_ds.attrs['ranking_method'] = metadata['ranking_method']
             features_ds.attrs['sampling_method'] = self.ranking_method
             features_ds.attrs['reduction_ratio'] = metadata['reduction_ratio']
+            features_ds.attrs['features_normalized'] = str(metadata.get('features_normalized', False))
             
             # Add alpha if using weighted method
             if self.ranking_method == 'weighted':

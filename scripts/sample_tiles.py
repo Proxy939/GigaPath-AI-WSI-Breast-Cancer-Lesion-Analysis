@@ -104,7 +104,8 @@ def sample_top_k_from_files(
     alpha: float = 0.7,
     mil_model: torch.nn.Module = None,
     device: torch.device = None,
-    resume: bool = False
+    resume: bool = False,
+    normalize: bool = True
 ):
     """
     Apply Top-K sampling to HDF5 feature files.
@@ -118,6 +119,7 @@ def sample_top_k_from_files(
         mil_model: Trained MIL model (for attention/weighted)
         device: CUDA device (for attention/weighted)
         resume: If True, skip already processed files
+        normalize: If True, L2-normalize features before ranking (default: True)
     """
     input_p = Path(input_path)
     output_p = Path(output_dir)
@@ -138,7 +140,8 @@ def sample_top_k_from_files(
         ranking_method=ranking_method,
         alpha=alpha,
         mil_model=mil_model,
-        device=device
+        device=device,
+        normalize_features=normalize
     )
     
     # Process files
@@ -288,6 +291,20 @@ def main():
         help='Skip already processed files'
     )
     
+    parser.add_argument(
+        '--normalize',
+        action='store_true',
+        default=True,
+        help='L2-normalize features before ranking (recommended for reproducibility, default: True)'
+    )
+    
+    parser.add_argument(
+        '--no-normalize',
+        dest='normalize',
+        action='store_false',
+        help='Disable feature normalization (legacy mode)'
+    )
+    
     args = parser.parse_args()
     
     # Load config
@@ -352,7 +369,8 @@ def main():
             alpha=args.alpha,
             mil_model=mil_model,
             device=device,
-            resume=args.resume
+            resume=args.resume,
+            normalize=args.normalize
         )
         
         logger.info("Top-K sampling complete!")

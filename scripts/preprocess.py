@@ -155,8 +155,24 @@ def preprocess_slides(
     results = []
     failed_slides = []
     
-    for wsi_file in tqdm(wsi_files, desc="Processing slides"):
+    # Runtime disk monitoring interval (check every N slides)
+    disk_check_interval = 10
+    
+    for idx, wsi_file in enumerate(tqdm(wsi_files, desc="Processing slides"), start=1):
         slide_name = wsi_file.stem
+        
+        # Runtime disk space monitoring
+        if idx % disk_check_interval == 0 or idx == 1:
+            disk_usage = shutil.disk_usage(output_p)
+            free_gb = disk_usage.free / (1024**3)
+            if free_gb < MIN_FREE_SPACE_GB:
+                logger.error(f"[DISK GUARD] Runtime check failed at slide {idx}/{len(wsi_files)}")
+                logger.error(f"[DISK GUARD] Free space dropped to {free_gb:.1f} GB (minimum: {MIN_FREE_SPACE_GB} GB)")
+                logger.error("Aborting preprocessing to prevent failure.")
+                logger.warning(f"Successfully processed {len(results)}/{len(wsi_files)} slides before abort")
+                break
+            else:
+                logger.debug(f"[DISK GUARD] Runtime check passed: {free_gb:.1f} GB free")
         
         # Check if already processed (resume mode)
         if resume:

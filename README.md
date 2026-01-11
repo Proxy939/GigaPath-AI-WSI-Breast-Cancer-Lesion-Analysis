@@ -1,10 +1,24 @@
-# GigaPath AI - WSI Breast Cancer Lesion Analysis Pipeline
+# Gig aPath AI - WSI Breast Cancer Lesion Analysis Pipeline
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.5-red.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Research Only](https://img.shields.io/badge/use-research_only-red.svg)](docs/system_disclaimers.md)
 
 Deep learning pipeline for Whole Slide Image (WSI) breast cancer classification using Multiple Instance Learning (MIL) with attention-based explainability.
+
+---
+
+## ⚠️ CRITICAL DISCLAIMER: Research Use Only
+
+> [!CAUTION]
+> **This system is NOT FDA-approved and is NOT intended for clinical diagnosis or patient care.**
+
+- ❌ **NOT a medical device** — Research tool only
+- ❌ **NOT validated for clinical use** — Requires pathologist review
+- ❌ **NOT suitable for patient diagnosis** — Educational/research purposes exclusively
+
+**See [System Disclaimers](docs/system_disclaimers.md) for complete ethical and safety information.**
 
 ---
 
