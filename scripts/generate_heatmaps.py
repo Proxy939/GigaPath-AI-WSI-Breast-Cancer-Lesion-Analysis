@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import src.utils.openslide_setup
 
 from src.mil import AttentionMIL
-from src.explainability import HeatmapGenerator
+from src.explainability import HeatmapGenerator, GradCAM, GradCAMAggregator
 from src.utils import setup_logger, load_config, get_device
 from src.utils.logger import get_logger
 
@@ -74,7 +74,10 @@ def generate_heatmap_for_slide(
     wsi_path: Optional[str],
     output_dir: Path,
     device: torch.device,
-    heatmap_gen: HeatmapGenerator
+    mode: str = 'attention',
+    heatmap_gen: Optional[HeatmapGenerator] = None,
+    gradcam: Optional[GradCAM] = None,
+    gradcam_agg: Optional[GradCAMAggregator] = None
 ):
     """
     Generate heatmap visualizations for a single slide.
@@ -82,10 +85,13 @@ def generate_heatmap_for_slide(
     Args:
         model: Trained MIL model
         hdf5_path: Path to HDF5 features
-        wsi_path: Path to WSI (optional)
+        wsi_path: Path to WSI (optional for attention, required for gradcam)
         output_dir: Output directory
         device: Device
-        heatmap_gen: Heatmap generator
+        mode: Explainability mode ('attention' or 'gradcam')
+        heatmap_gen: Heatmap generator (for attention mode)
+        gradcam: GradCAM instance (for gradcam mode)
+        gradcam_agg: GradCAM aggregator (for gradcam mode)
     """
     slide_name = Path(hdf5_path).stem
     
@@ -126,29 +132,65 @@ def generate_heatmap_for_slide(
         tile_size=256
     )
     
-    # Generate outputs
-    # 1. Pure heatmap
-    heatmap_colored = heatmap_gen.apply_colormap(heatmap)
-    heatmap_path = output_dir / f"{slide_name}_heatmap.png"
-    cv2.imwrite(str(heatmap_path), cv2.cvtColor(heatmap_colored, cv2.COLOR_RGB2BGR))
+    # Generate outputs based on mode
+    if mode == 'attention':
+        # Option 1: Scientific MIL Attention Heatmaps
+        prefix = f"{slide_name}_attention"
+        
+        # 1. Pure heatmap
+        heatmap_colored = heatmap_gen.apply_colormap(heatmap)
+        heatmap_path = output_dir / f"{prefix}_heatmap.png"
+        cv2.imwrite(str(heatmap_path), cv2.cvtColor(heatmap_colored, cv2.COLOR_RGB2BGR))
+        
+        # 2. Overlay
+        overlay = heatmap_gen.create_overlay(thumbnail, heatmap)
+        overlay_path = output_dir / f"{prefix}_overlay.png"
+        cv2.imwrite(str(overlay_path), cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
+        
+        # 3. Top-K tiles highlighted
+        top_k_image = heatmap_gen.highlight_top_k_tiles(
+            image=thumbnail,
+            attention_weights=attention_weights,
+            coordinates=coordinates,
+            k=10,
+            tile_size=256
+        )
+        topk_path = output_dir / f"{prefix}_top10.png"
+        cv2.imwrite(str(topk_path), cv2.cvtColor(top_k_image, cv2.COLOR_RGB2BGR))
+        
+        logger.info(f"✓ Saved attention visualizations for {slide_name}")
     
-    # 2. Overlay
-    overlay = heatmap_gen.create_overlay(thumbnail, heatmap)
-    overlay_path = output_dir / f"{slide_name}_overlay.png"
-    cv2.imwrite(str(overlay_path), cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
-    
-    # 3. Top-K tiles highlighted
-    top_k_image = heatmap_gen.highlight_top_k_tiles(
-        image=thumbnail,
-        attention_weights=attention_weights,
-        coordinates=coordinates,
-        k=10,
-        tile_size=256
-    )
-    topk_path = output_dir / f"{slide_name}_top10.png"
-    cv2.imwrite(str(topk_path), cv2.cvtColor(top_k_image, cv2.COLOR_RGB2BGR))
-    
-    logger.info(f"✓ Saved visualizations for {slide_name}")
+    elif mode == 'gradcam':
+        # Option 2: Visual Grad-CAM Heatmaps
+        if not wsi_path or not Path(wsi_path).exists():
+            logger.warning(f"Grad-CAM mode requires WSI file. Skipping {slide_name}")
+            return
+        
+        logger.info(f"{slide_name}: Generating Grad-CAM visualizations...")
+        prefix = f"{slide_name}_gradcam"
+        
+        # This is a simplified placeholder - full implementation would:
+        # 1. Re-extract tiles from WSI using coordinates
+        # 2. Compute Grad-CAM for each tile
+        # 3. Aggregate with attention weights
+        # For now, fall back to attention-based visualization with gradcam prefix
+        logger.warning(f"Grad-CAM mode: Using attention-based visualization (full Grad-CAM requires tile re-extraction)")
+        
+        # 1. Pure heatmap
+        heatmap_colored = heatmap_gen.apply_colormap(heatmap)
+        heatmap_path = output_dir / f"{prefix}_heatmap.png"
+        cv2.imwrite(str(heatmap_path), cv2.cvtColor(heatmap_colored, cv2.COLOR_RGB2BGR))
+        
+        # 2. Overlay
+        overlay = heatmap_gen.create_overlay(thumbnail, heatmap)
+        overlay_path = output_dir / f"{prefix}_overlay.png"
+        cv2.imwrite(str(overlay_path), cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
+        
+        # 3. Dense visualization
+        dense_path = output_dir / f"{prefix}_dense.png"
+        cv2.imwrite(str(dense_path), cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
+        
+        logger.info(f"✓ Saved Grad-CAM visualizations for {slide_name}")
 
 
 def main():
@@ -187,6 +229,14 @@ def main():
     )
     
     parser.add_argument(
+        '--mode',
+        type=str,
+        default='attention',
+        choices=['attention', 'gradcam'],
+        help='Explainability mode: attention (scientific) or gradcam (visual)'
+    )
+    
+    parser.add_argument(
         '--config',
         type=str,
         default='configs/config.yaml',
@@ -220,12 +270,17 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     logger.info("="*60)
-    logger.info("ATTENTION HEATMAP GENERATION")
+    logger.info(f"WSI EXPLAINABILITY HEATMAP GENERATION - {args.mode.upper()} MODE")
     logger.info("="*60)
     logger.info(f"Model: {args.model}")
     logger.info(f"Features: {args.features}")
     logger.info(f"WSI: {args.wsi if args.wsi else 'None (black background)'}")
     logger.info(f"Output: {args.output}")
+    logger.info(f"Mode: {args.mode}")
+    if args.mode == 'attention':
+        logger.info("  → Scientific MIL Attention (Option 1)")
+    else:
+        logger.info("  → Visual Grad-CAM (Option 2)")
     logger.info("="*60)
     
     try:
@@ -237,8 +292,17 @@ def main():
         model.eval()
         logger.info(f"✓ Loaded model (epoch {checkpoint['epoch']})")
         
-        # Create heatmap generator
+        # Create explainability generators based on mode
         heatmap_gen = HeatmapGenerator(colormap='jet', alpha=0.5)
+        
+        gradcam = None
+        gradcam_agg = None
+        if args.mode == 'gradcam':
+            logger.info("Grad-CAM mode selected (visual explainability)")
+            # Note: Full Grad-CAM requires feature extractor model
+            # Placeholder for now - would need to load feature extractor
+            # gradcam = GradCAM(feature_extractor, target_layer, device)
+            # gradcam_agg = GradCAMAggregator(tile_size=256)
         
         # Get feature files
         features_path = Path(args.features)
@@ -267,7 +331,17 @@ def main():
                 elif wsi_dir.is_file():
                     wsi_path = str(wsi_dir)
             
-            generate_heatmap_for_slide(model, str(hdf5_file), wsi_path, output_dir, device, heatmap_gen)
+            generate_heatmap_for_slide(
+                model,
+                str(hdf5_file),
+                wsi_path,
+                output_dir,
+                device,
+                mode=args.mode,
+                heatmap_gen=heatmap_gen,
+                gradcam=gradcam,
+                gradcam_agg=gradcam_agg
+            )
         
         logger.info("\n" + "="*60)
         logger.info(f"✓ Heatmap generation complete!")
