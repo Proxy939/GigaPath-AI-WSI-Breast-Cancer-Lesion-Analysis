@@ -118,17 +118,7 @@ Attention Heatmaps → Explainability Visualization
 
 ### Performance
 
-**RTX 4070 8GB**:
-- Preprocessing: ~30s/slide
-- Feature extraction: ~5-7 min/slide
-- Top-K sampling: <1s/slide
-- MIL training: ~1-2 hours (100 slides)
-- Inference: ~10-20ms/slide
-
-**Disk Usage**:
-- Raw tiles (debug): ~150 MB/slide
-- HDF5 features: ~15 MB/slide (10× compression)
-- Top-K features: ~15 MB/slide (same)
+it just needs less than 1gb vram to process feature extraction on gpu. The model has been optimised to run on low end system.{{{CHILL}}}
 
 ---
 
@@ -243,15 +233,15 @@ slide_003,0
 
 **Minimum**:
 - Python 3.10+
-- 16 GB RAM
-- NVIDIA GPU with 8 GB VRAM (CUDA 11.8+)
-- 100 GB free disk space
+- 8 GB RAM
+- NVIDIA GPU with 2 GB VRAM (CUDA 11.8+)
+
 
 **Recommended**:
 - Python 3.10
-- 32 GB RAM
+- 16 GB RAM
 - NVIDIA RTX 4070 or better
-- 500 GB SSD
+  
 
 ---
 
