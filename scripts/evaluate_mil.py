@@ -18,6 +18,7 @@ Requirements:
 """
 import argparse
 import sys
+import shutil
 import json
 from pathlib import Path
 import pandas as pd
@@ -46,6 +47,24 @@ from src.utils import setup_logger, load_config
 from src.utils.logger import get_logger
 
 logger = None  # Will be initialized in main()
+
+
+def reset_evaluation_directory(output_dir: Path):
+    """
+    Clean evaluation directory before starting new evaluation.
+    
+    Removes all previous evaluation artifacts to ensure clean state.
+    Only affects results/evaluation/ — does NOT touch training data,
+    features, or checkpoints.
+    
+    Args:
+        output_dir: Path to evaluation output directory
+    """
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+        logger.info("[CLEAN] Previous evaluation results removed")
+    
+    output_dir.mkdir(parents=True, exist_ok=True)
 
 
 def enforce_gpu():
@@ -399,7 +418,12 @@ def main():
     logger.info(f"Features directory:  {args.features}")
     logger.info(f"Labels file:         {args.labels}")
     logger.info(f"Output directory:    {args.output}")
-    logger.info(f"Evaluation output directory verified: {output_dir.absolute()}")
+    logger.info("="*60)
+    
+    # CLEAN: Reset evaluation directory
+    output_dir = Path(args.output)
+    reset_evaluation_directory(output_dir)
+    logger.info(f"Evaluation directory ready: {output_dir.absolute()}")
     logger.info("="*60)
     
     try:
