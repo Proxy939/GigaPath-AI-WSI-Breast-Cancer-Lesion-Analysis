@@ -5,8 +5,11 @@
 [![License MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Research Only](https://img.shields.io/badge/status-research__only-yellow.svg)](docs/system_disclaimers.md)
 [![WSI Supported](https://img.shields.io/badge/data-WSI%20%2F%20TIFF-purple.svg)]()
+[![Checkpoints Included](https://img.shields.io/badge/checkpoints-included-green.svg)]()
 
 > **A Research-Grade, Backend-Only Computational Pathology System for Binary Breast Cancer Classification using Multiple Instance Learning (MIL) and Vision Transformers.**
+
+> **🚀 READY FOR DEPLOYMENT**: This repository includes trained model checkpoints. Clone and run inference immediately—no dataset or training required.
 
 ---
 
@@ -388,33 +391,56 @@ mil:
 
 ### Prerequisites
 *   OS: Windows 10/11 or Linux (Ubuntu 20.04+)
-*   GPU: NVIDIA GPU with >6GB VRAM (Required for efficient inference) but the model is  optimised that it will use less than 1gb vram to run so chill out.
+*   GPU: NVIDIA GPU with >6GB VRAM (recommended, but model is optimized to use <1GB VRAM)
 *   Python: 3.10+
 *   CUDA: 11.8 or higher
 
-### Installation
+### Quick Start (3 Steps)
 
 ```bash
-# 1. Clone
+# 1. Clone (includes trained checkpoints)
 git clone https://github.com/YourUsername/GigaPath-AI.git
 cd GigaPath-AI
 
-# 2. Env
+# 2. Install dependencies
 python -m venv venv
 source venv/bin/activate  # or venv\Scripts\activate on Windows
-
-# 3. Deps
 pip install -r requirements.txt
 pip install openslide-bin  # (Windows only)
+
+# 3. Validate system (optional but recommended)
+python scripts/validate_system.py
 ```
 
-### Execution (One-Line Sandbox Test)
+### Inference (Immediate Use)
+
+**✅ checkpoints/ already contains trained models**
 
 ```bash
+# Test inference (sandbox)
 python scripts/test_inference.py \
     --input test_data/input/wsi/sample_01.tif \
     --model checkpoints/best_model.pth
+
+# Batch inference
+python scripts/infer_mil.py \
+    --model checkpoints/best_model.pth \
+    --features data/features_topk \
+    --output results/predictions.csv
 ```
+
+### Repository Contents
+
+**✅ Included (Committed to Git)**:
+-   Trained model checkpoints (`best_model.pth`, `last_model.pth`)
+-   All source code and scripts
+-   Configuration files
+-   Documentation
+
+**❌ Not Included (Obtain Separately)**:
+-   Training datasets (WSI files)
+-   Extracted features (`.h5` files)
+-   Evaluation results
 
 ---
 

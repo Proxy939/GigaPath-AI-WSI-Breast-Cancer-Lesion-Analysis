@@ -56,10 +56,13 @@ data/*
 *.bif
 *.scn
 
-# Model Checkpoints
-*.pth
+# Model Checkpoints (Data files only, not trained models)
+# Trained checkpoints in checkpoints/ ARE committed
 *.pt
 *.ckpt
+data/**/*.pth
+data/**/*.pkl
+data/**/*.pickle
 *.pkl
 *.pickle
 
