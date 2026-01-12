@@ -9,19 +9,6 @@ Deep learning pipeline for Whole Slide Image (WSI) breast cancer classification 
 
 ---
 
-## ⚠️ CRITICAL DISCLAIMER: Research Use Only
-
-> [!CAUTION]
-> **This system is NOT FDA-approved and is NOT intended for clinical diagnosis or patient care.**
-
-- ❌ **NOT a medical device** — Research tool only
-- ❌ **NOT validated for clinical use** — Requires pathologist review
-- ❌ **NOT suitable for patient diagnosis** — Educational/research purposes exclusively
-
-**See [System Disclaimers](docs/system_disclaimers.md) for complete ethical and safety information.**
-
----
-
 ## 🎯 Overview
 
 Complete end-to-end pipeline for WSI analysis:
