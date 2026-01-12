@@ -28,10 +28,77 @@ import h5py
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.mil import AttentionMIL
-from src.utils import setup_logger, load_config, get_device
+from src.utils import setup_logger, load_config
 from src.utils.logger import get_logger
 
 logger = None  # Will be initialized in main()
+
+
+def enforce_gpu():
+    """
+    Enforce GPU-only execution. Abort if CUDA not available.
+    
+    Raises:
+        RuntimeError: If CUDA is not available
+    """
+    if not torch.cuda.is_available():
+        print("\n" + "="*60)
+        print("❌ GPU ENFORCEMENT FAILED")
+        print("="*60)
+        print("CUDA is not available on this system.")
+        print("This inference script requires GPU acceleration.")
+        print("CPU fallback is DISABLED as per requirements.")
+        print("="*60)
+        raise RuntimeError("CUDA not available - GPU-only execution enforced")
+    
+    device = torch.device('cuda:0')
+    gpu_name = torch.cuda.get_device_name(0)
+    
+    print("\n" + "="*60)
+    print("✓ GPU VERIFICATION PASSED")
+    print("="*60)
+    print(f"Device: {device}")
+    print(f"GPU: {gpu_name}")
+    print(f"CUDA Version: {torch.version.cuda}")
+    print(f"PyTorch Version: {torch.__version__}")
+    print("CPU FALLBACK: DISABLED")
+    print("="*60 + "\n")
+    
+    return device
+
+
+def discover_topk_features(features_dir: Path):
+    """
+    Recursively discover all Top-K feature files.
+    
+    Searches for '*_topk.h5' files in features_dir and all subdirectories
+    (e.g., normal/, tumor/, etc.).
+    
+    Args:
+        features_dir: Root directory to search
+    
+    Returns:
+        List of tuples (slide_name, h5_path)
+    """
+    if not features_dir.exists():
+        raise FileNotFoundError(f"Features directory not found: {features_dir}")
+    
+    # Recursive glob for all *_topk.h5 files
+    h5_files = list(features_dir.rglob("*_topk.h5"))
+    
+    if len(h5_files) == 0:
+        raise FileNotFoundError(
+            f"No Top-K feature files (*_topk.h5) found in {features_dir} or subdirectories.\n"
+            f"Expected structure: {features_dir}/normal/*.h5, {features_dir}/tumor/*.h5"
+        )
+    
+    # Extract slide names and paths
+    slides = []
+    for h5_path in h5_files:
+        slide_name = h5_path.stem.replace("_topk", "")
+        slides.append((slide_name, h5_path))
+    
+    return slides
 
 
 def load_model(checkpoint_path: str, device: torch.device) -> AttentionMIL:
@@ -83,14 +150,7 @@ def load_features_from_hdf5(hdf5_path: str) -> torch.Tensor:
     return torch.from_numpy(features).float()
 
 
-def get_hdf5_files(features_path: Path):
-    """Get list of HDF5 files."""
-    if features_path.is_file():
-        return [features_path]
-    elif features_path.is_dir():
-        return sorted(list(features_path.glob('*.h5')) + list(features_path.glob('*.hdf5')))
-    else:
-        raise ValueError(f"Path does not exist: {features_path}")
+
 
 
 def run_inference(
@@ -109,14 +169,15 @@ def run_inference(
         device: Device
     """
     features_p = Path(features_path)
-    hdf5_files = get_hdf5_files(features_p)
     
-    logger.info(f"Found {len(hdf5_files)} slides for inference")
+    # Recursively discover all *_topk.h5 files
+    slides = discover_topk_features(features_p)
+    
+    logger.info(f"Discovered {len(slides)} Top-K feature files for inference")
     
     results = []
     
-    for hdf5_file in tqdm(hdf5_files, desc="Running inference"):
-        slide_name = hdf5_file.stem
+    for slide_name, hdf5_file in tqdm(slides, desc="Running inference"):
         
         try:
             # Load features
@@ -153,6 +214,8 @@ def run_inference(
                 'slide_name': slide_name,
                 'predicted_label': -1,
                 'probability': -1.0,
+                'confidence_percent': -1.0,
+                'interpretation': 'ERROR',
                 'logit': -999.0
             })
     
@@ -230,13 +293,15 @@ def main():
         save_to_file=config['logging']['save_logs']
     )
     
-    # Get device
-    device = get_device()
-    logger.info(f"Using device: {device}")
+    # GPU ENFORCEMENT (BEFORE LOGGING)
+    try:
+        device = enforce_gpu()
+    except RuntimeError:
+        sys.exit(1)
     
     # Log configuration
     logger.info("="*60)
-    logger.info("MIL INFERENCE")
+    logger.info("MIL INFERENCE PIPELINE")
     logger.info("="*60)
     logger.info(f"Model: {args.model}")
     logger.info(f"Features: {args.features}")
@@ -250,8 +315,12 @@ def main():
         # Run inference
         run_inference(model, args.features, args.output, device)
         
-        logger.info("\n✓ Inference complete!")
+        logger.info("\n✅ INFERENCE COMPLETE!\n")
     
+    except FileNotFoundError as e:
+        logger.error(f"\n{e}")
+        logger.error("Inference aborted: No Top-K feature files found")
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Inference failed: {e}", exc_info=True)
         sys.exit(1)
