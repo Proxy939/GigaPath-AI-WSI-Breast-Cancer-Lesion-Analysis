@@ -35,39 +35,6 @@ class HeatmapGenerator:
         self.colormap = cm.get_cmap(colormap)
         self.alpha = alpha
         self.gaussian_sigma = gaussian_sigma
-    
-    def create_heatmap(
-        self,
-        attention_weights: np.ndarray,
-        coordinates: np.ndarray,
-        canvas_size: Tuple[int, int],
-        tile_size: int = 256
-    ) -> np.ndarray:
-        """
-        Create heatmap from attention weights and tile coordinates.
-        
-        Args:
-            attention_weights: Attention scores (K,)
-            coordinates: Tile coordinates in level-0 space (K, 2)
-            canvas_size: Output canvas size (H, W)
-            tile_size: Size of tiles at level-0
-        
-        Returns:
-            Heatmap array (H, W) normalized to [0, 1]
-        """
-        # Initialize heatmap
-        heatmap = np.zeros(canvas_size, dtype=np.float32)
-        
-        # Map coordinates to canvas
-        # Coordinates are in level-0, need to scale to canvas
-        for i, (x, y) in enumerate(coordinates):
-            # Place attention weight at tile location
-            heatmap[int(y):int(y)+tile_size, int(x):int(x)+tile_size] += attention_weights[i]
-        
-        # Apply Gaussian smoothing
-        if self.gaussian_sigma is None:
-            sigma = tile_size / 4  # Auto sigma
-        else:
             sigma = self.gaussian_sigma
         
         heatmap_smooth = gaussian_filter(heatmap, sigma=sigma)
@@ -79,6 +46,46 @@ class HeatmapGenerator:
             heatmap_norm = heatmap_smooth
         
         return heatmap_norm
+    
+    def normalize_attention(self, attention_scores: np.ndarray) -> np.ndarray:
+        """
+        Normalize attention scores with percentile clipping for contrast.
+        
+        Args:
+            attention_scores: Raw attention scores
+        
+        Returns:
+            Normalized scores in [0, 1] with enhanced contrast
+        """
+        scores = attention_scores.copy()
+        
+        # Handle edge cases
+        if len(scores) == 0:
+            return scores
+        
+        if np.all(scores == scores[0]):
+            # All scores identical - return uniform mid-value
+            logger.warning("All attention scores are identical - using uniform 0.5")
+            return np.full_like(scores, 0.5)
+        
+        # Percentile clipping to remove outliers (1%-99%)
+        p1, p99 = np.percentile(scores, [1, 99])
+        scores_clipped = np.clip(scores, p1, p99)
+        
+        # Min-max normalization to [0, 1]
+        min_val = scores_clipped.min()
+        max_val = scores_clipped.max()
+        
+        if max_val - min_val < 1e-10:
+            # Nearly identical after clipping - use mid-value
+            return np.full_like(scores, 0.5)
+        
+        normalized = (scores_clipped - min_val) / (max_val - min_val)
+        
+        logger.info(f"Attention normalization: min={min_val:.4f}, max={max_val:.4f}, "
+                        f"range=[{normalized.min():.4f}, {normalized.max():.4f}]")
+        
+        return normalized
     
     def apply_colormap(self, heatmap: np.ndarray) -> np.ndarray:
         """
