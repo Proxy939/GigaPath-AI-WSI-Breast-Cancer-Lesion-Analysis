@@ -1,695 +1,421 @@
-# Gig aPath AI - WSI Breast Cancer Lesion Analysis Pipeline
+# GigaPath AI - WSI Breast Cancer Lesion Analysis Pipeline
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.5-red.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Research Only](https://img.shields.io/badge/use-research_only-red.svg)](docs/system_disclaimers.md)
+[![PyTorch 2.5](https://img.shields.io/badge/PyTorch-2.5-red.svg)](https://pytorch.org/)
+[![License MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Research Only](https://img.shields.io/badge/status-research__only-yellow.svg)](docs/system_disclaimers.md)
+[![WSI Supported](https://img.shields.io/badge/data-WSI%20%2F%20TIFF-purple.svg)]()
 
-Deep learning pipeline for Whole Slide Image (WSI) breast cancer classification using Multiple Instance Learning (MIL) with attention-based explainability.
-
----
-
-## 🎯 Overview
-
-Complete end-to-end pipeline for WSI analysis:
-1. **Preprocessing**: Tissue detection & tile extraction
-2. **Feature Extraction**: Pretrained GigaPath embeddings (Foundation Model)
-3. **Top-K Sampling**: Intelligent tile selection (35-50% reduction)
-4. **MIL Classification**: Gated attention for slide-level prediction
-5. **Explainability**: Attention heatmaps for visual interpretation
+> **A Research-Grade, Backend-Only Computational Pathology System for Binary Breast Cancer Classification using Multiple Instance Learning (MIL) and Vision Transformers.**
 
 ---
 
-## 🚀 Quick Start
+## 📑 Table of Contents
 
-### Installation
-
-```bash
-# 1. Clone repository
-git clone https://github.com/YourUsername/GigaPath-AI-WSI-Breast-Cancer-Lesion-Analysis.git
-cd GigaPath-AI-WSI-Breast-Cancer-Lesion-Analysis
-
-# 2. Create virtual environment
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Verify setup
-python scripts/verify_setup.py
-```
-
-### Complete Workflow
-
-```bash
-# Phase 1: Preprocess WSI
-python scripts/preprocess.py --input data/raw_wsi --output data/tiles
-
-# Phase 2: Extract features
-python scripts/extract_features.py --input data/tiles --output data/features
-
-# Phase 3: Sample top-K tiles
-python scripts/sample_tiles.py --input data/features --output data/features_topk
-
-# Phase 4: Train MIL model
-python scripts/train_mil.py --features data/features_topk --labels data/labels.csv
-
-# Phase 5: Run inference
-python scripts/infer_mil.py \
-  --model checkpoints/best_model.pth \
-  --features data/features_topk \
-  --output results/predictions.csv
-
-# Phase 6: Generate heatmaps
-python scripts/generate_heatmaps.py \
-  --model checkpoints/best_model.pth \
-  --features data/features_topk \
-  --wsi data/raw_wsi \
-  --output visualizations/
-```
+1. [Project Overview](#-1-project-overview)
+2. [Key Features](#-2-key-features)
+3. [System Architecture](#-3-system-architecture)
+4. [Folder Structure](#-4-folder-structure)
+5. [Data Pipeline](#-5-data-pipeline)
+6. [Model Architecture](#-6-model-architecture)
+7. [Explainability & Interpretability](#-7-explainability--interpretability)
+8. [Inference Output Format](#-8-inference-output-format)
+9. [Testing & Evaluation](#-9-testing--evaluation)
+10. [Configuration & Customization](#-10-configuration--customization)
+11. [Integration Guide](#-11-integration-guide)
+12. [Reproducibility & Ethics](#-12-reproducibility--research-ethics)
+13. [Limitations & Future Work](#-13-limitations--future-work)
+14. [Installation & Execution](#-14-installation--execution)
+15. [Final Summary](#-15-final-summary)
 
 ---
 
-## 📊 Pipeline Architecture
+## 🎯 1. Project Overview
 
-```
-WSI (.svs) → Tissue Detection → Tile Extraction (256×256)
-    ↓
-Pretrained GigaPath Model → Feature Extraction (Batch-optimized)
-    ↓
-Top-K Sampling (K=1000) → Feature Norm Ranking
-    ↓
-Gated Attention MIL → Slide-Level Classification
-    ↓
-Attention Heatmaps → Explainability Visualization
-```
+**GigaPath-AI-WSI-Breast-Cancer-Lesion-Analysis** is a specialized, deep learning-based pipeline designed to detect breast cancer lesions in **Whole Slide Images (WSIs)**. Unlike traditional patch-based CNNs that require expensive pixel-level annotations, this system utilizes **Multiple Instance Learning (MIL)** to learn directly from slide-level clinical diagnoses (Cancer / No Cancer).
 
----
+### Problem Statement
+Digital pathology involves analyzing gigapixel-scale images (often >100,000 x 100,000 pixels). Standard deep learning models cannot process these images directly due to memory constraints. Furthermore, obtaining manual segmentations for every tumor cell is clinically impractical.
 
-## 🔬 Technical Details
-
-### Model Architecture
-
-**Gated Attention MIL**:
-- Attention Branch: `Tanh(Linear(2048→512)→Linear(512→256))`
-- Gate Branch: `Sigmoid(Linear(2048→512)→Linear(512→256))`
-- Classifier: `Linear(2048→1)` (binary)
-- Loss: BCEWithLogitsLoss
-
-**Key Features**:
-- Single logit output (CLAM-style)
-- Float32 enforcement (50% VRAM reduction)
-- Attention sum = 1.0 (softmax dim=0)
-
-### Performance
-
-it just needs less than 1gb vram to process feature extraction on gpu. The model has been optimised to run on low end system.{{{CHILL}}}
+### Solution
+This system adopts a **Weakly Supervised Learning** approach:
+1.  **Tiling**: Breaking the gigapixel WSI into thousands of manageable $256 \times 256$ patches.
+2.  **Feature Encoding**: Transforming patches into compact embeddings using a foundation model (GigaPath).
+3.  **MIL Aggregation**: Using an attention-based neural network to aggregate patch embeddings into a single slide-level prediction, while simultaneously learning which patches are diagnostic (attention scores).
 
 ---
 
-## 📁 Project Structure
+## 🌟 2. Key Features
 
+*   **Patch-Based Processing**: High-performance tiling engine optimized for large .tif/.svs files, capable of handling 40x magnification scans.
+*   **Foundation Model Integration**: Utilizes pretrained encoders (ResNet50 / GigaPath) for robust feature extraction without end-to-end retraining.
+*   **Gated Attention MIL**: Implements the CLAM (Clustering-constrained Attention Multiple instance learning) architecture variants for superior stability and interpretability.
+*   **Top-K Sampling Strategy**: Intelligent instance selection to reduce computational load by focusing on the most "salient" tissue regions.
+*   **Dual Explainability**:
+    *   **Attention Heatmaps**: Visualizes the model's focus at the tile level.
+    *   **Grad-CAM (Planned)**: Provides deeper, pixel-level introspection of feature activation.
+*   **Confidence Calibration**: Probability-based confidence scores to assist clinical researchers in assessing model certainty.
+*   **Modular Design**: Strictly decoupled phases (Preprocessing $\to$ Extraction $\to$ Inference) enabling easy component swapping.
+*   **Handover-Ready**: Fully documented, container-friendly, and API-integration ready.
+
+---
+
+## 🏗️ 3. System Architecture
+
+The system follows a strict linear pipeline designed for reproducibility and auditability.
+
+### High-Level Architecture
+
+```ascii
+[ WSI Input (.tif) ]
+       │
+       ▼
+[ Phase 0: Preprocessing ] ───▶ Tissue Segmentation & Tiling
+       │
+       ▼
+[ Phase 1: Feature Extractor ] ───▶ Pretrained Encoder (Freeze)
+       │
+       ▼
+[ Feature Bags (.h5) ] ───▶ (N x 2048) Embeddings
+       │
+       ▼
+[ Phase 2: Top-K Sampling ] ───▶ Salience Filtering
+       │
+       ▼
+[ Phase 3: MIL Network ] ───▶ Gated Attention Mechanism
+       │
+       ├───▶ [ Slide Prediction (0/1) ]
+       │
+       └───▶ [ Attention Weights (A_i) ]
+                  │
+                  ▼
+[ Phase 4: Visualization ] ───▶ Heatmaps & Overlays
 ```
-GigaPath-AI-WSI-Breast-Cancer-Lesion-Analysis/
-├── src/
-│   ├── preprocessing/      # Phase 0: Tissue detection, tiling
-│   ├── feature_extraction/ # Phase 1: ResNet50 features
-│   ├── sampling/           # Phase 2: Top-K selection
-│   ├── mil/                # Phase 3: MIL model, training
-│   ├── explainability/     # Phase 4: Heatmap generation
-│   └── utils/              # Utilities (logger, GPU monitor, config)
-├── scripts/
-│   ├── preprocess.py           # WSI preprocessing
-│   ├── extract_features.py     # Feature extraction
-│   ├── sample_tiles.py         # Top-K sampling
-│   ├── train_mil.py            # MIL training
-│   ├── infer_mil.py            # Batch inference
-│   └── generate_heatmaps.py    # Attention visualization
-├── configs/
-│   └── config.yaml         # Pipeline configuration
-├── tests/
-│   ├── test_preprocessing.py
-│   ├── test_mil_simple.py
-│   └── test_full_pipeline.py
-├── data/                   # Data directory (gitignored)
-├── checkpoints/            # Model checkpoints
-└── requirements.txt
+
+### Detailed Inference Flow
+
+```ascii
+User Input
+    │
+    ├── WSI File (.tif) ─────────────────────────────┐
+    │                                                │
+    │   ┌────────────────────────────────────────┐   │
+    ├──▶│ utils.test_inference.py (Orchestrator) │◀──┘
+    │   └────────────────────────────────────────┘
+    │           │
+    │           ▼
+    │   ┌─────────────────┐
+    │   │ Tile Extractor  │ (src.preprocessing)
+    │   └─────────────────┘
+    │           │
+    │           ▼
+    │   ┌─────────────────┐
+    │   │ ResNet50/GigaPath │ (src.feature_extraction)
+    │   └─────────────────┘
+    │           │ Features (HDF5)
+    │           ▼
+    │   ┌─────────────────┐
+    │   │ AttentionMIL    │ (src.mil)
+    │   │ (Eval Mode)     │
+    │   └─────────────────┘
+    │           │
+    │           ├───────────────┐
+    │           ▼               ▼
+    │    [ JSON Prediction ] [ Attention Scores ]
+    │                           │
+    │                           ▼
+    │                    [ Heatmap Generator ]
+    │                           │
+    │                           ▼
+    └──────────────────────▶ [ Output: PNG Heatmaps ]
 ```
 
 ---
 
-## 🧪 Testing
+## 📂 4. Folder Structure
 
-```bash
-# Run all tests
-pytest tests/ -v
+The project directory is organized to strictly separate code, data, configuration, and outputs.
 
-# Run specific module
-pytest tests/test_full_pipeline.py -v
-
-# With coverage
-pytest tests/ --cov=src --cov-report=html
+```text
+GigaPath-AI-WSI/
+├── configs/                # Configuration YAMLs (Hyperparameters, Paths)
+│   └── config.yaml         # Master configuration
+│
+├── data/                   # MAIN DATA STORAGE (Gitignored)
+│   ├── raw_wsi/            # Input Whole Slide Images
+│   ├── tiles/              # Extracted patches (transient or saved)
+│   ├── features/           # Extracted embeddings (.h5)
+│   ├── features_topk/      # Downsampled feature bags
+│   └── labels.csv          # Ground truth labels for training
+│
+├── src/                    # SOURCE CODE MODULES
+│   ├── preprocessing/      # Patching, tissue detection (Otsu)
+│   ├── feature_extraction/ # CNN/Transformer encoders
+│   ├── sampling/           # Top-K / Random sampling logic
+│   ├── mil/                # MIL Model definitions & Training loops
+│   ├── explainability/     # Heatmap & Grad-CAM generators
+│   └── utils/              # Logging, IO, GPU management
+│
+├── scripts/                # EXECUTABLE SCRIPTS
+│   ├── preprocess.py       # Run tiling
+│   ├── extract_features.py # Run encoding
+│   ├── train_mil.py        # Train model
+│   ├── infer_mil.py        # Batch inference
+│   ├── test_inference.py   # Single-sample offline test
+│   └── generate_heatmaps.py# Visualization
+│
+├── checkpoints/            # SAVED MODELS
+│   └── best_model.pth      # Production-ready MIL weights
+│
+├── test_data/              # ISOLATED SANDBOX
+│   ├── input/              # Drop user files here
+│   └── test_results/       # Sandbox outputs
+│
+├── results/                # EVALUATION OUTPUTS
+│   ├── evaluation/         # Confusion matrices, ROC curves
+│   └── logs/               # Execution logs
+│
+└── tests/                  # UNIT TESTS (PyTest)
 ```
 
 ---
 
-## 📚 Documentation
+## 🔄 5. Data Pipeline
 
-### Configuration
+### Step 1: WSI Loading & Tissue Detection
+*   **Library**: `OpenSlide` for reading high-res TIFFs.
+*   **Logic**:
+    1.  Load WSI at a low-resolution level (thumbnail).
+    2.  Convert to HSV color space.
+    3.  Apply Otsu's thresholding on the Saturation channel to separate tissue from white background.
+    4.  Generate a binary tissue mask.
 
-Edit `configs/config.yaml`:
+### Step 2: Patch Extraction
+*   **Grid**: Slide is divided into a grid of non-overlapping $256 \times 256$ tiles.
+*   **Filtering**: Only tiles with $>50\%$ tissue coverage (based on the mask) are kept.
+*   **Output**: Patches are either saved as .png files (Research Mode) or held in memory (Production Mode).
+
+### Step 3: Feature Extraction
+*   **Input**: Batch of tissue patches.
+*   **Model**: ResNet50 (truncated at penultimate layer) or GigaPath.
+*   **Output**: A vector of size $2048$ (ResNet) or $1536$ (GigaPath) per patch.
+*   **Storage**: Features for the entire slide are batched and saved to a single `.h5` file to prevent filesystem IO bottlenecks.
+
+### Step 4: Bag Creation & Labeling
+*   **Bag**: The collection of all $N$ feature vectors from one slide forms a "bag": $X = \{x_1, x_2, ..., x_N\}$.
+*   **Label**: The bag inherits the slide's diagnosis (e.g., $Y=1$ for Cancer).
+
+---
+
+## 🧠 6. Model Architecture
+
+We employ a **Gated Attention Multiple Instance Learning** network.
+
+### Concept: Weak Supervision
+In standard supervised learning, every input $x$ has a label $y$. In MIL, we only have a label $Y$ for a bag of inputs $X$.
+If $Y=0$ (Normal), then **all** $x_i$ must be Normal.
+If $Y=1$ (Cancer), then **at least one** $x_i$ must be Cancer.
+
+### Network Components
+
+1.  **Feature Projector**:
+    *   Linear layer reducing dimensions (e.g., $2048 \to 512$).
+    *   ReLU activation + Dropout.
+
+2.  **Gated Attention Module (Ilse et al. / CLAM)**:
+    Computes an attention score $a_k$ for every patch $k$:
+    $$a_k = \frac{\exp\{w^T (\tanh(V h_k^T) \odot \text{sigm}(U h_k^T))\}}{\sum_{j=1}^{N} \exp\{w^T (\tanh(V h_j^T) \odot \text{sigm}(U h_j^T))\}}$$
+    *   **Tanh Branch**: Learns features.
+    *   **Sigmoid Branch**: Acts as a gate to filter irrelevant features.
+    *   This provides stable, learnable attention weights.
+
+3.  **Aggregator**:
+    Computes the slide representation $H_{slide}$ by weighted sum:
+    $$H_{slide} = \sum_{k=1}^{N} a_k h_k$$
+
+4.  **Classifier**:
+    *   Final Linear Layer: $H_{slide} \to 1$ (Logit).
+    *   Sigmoid Activation: Logit $\to$ Probability.
+
+### Training Details
+*   **Loss Function**: Binary Cross Entropy with Logits (`BCEWithLogitsLoss`).
+*   **Optimizer**: Adam or AdamW.
+*   **Metric**: AUC-ROC (Area Under Curve) is the primary metric due to class imbalance.
+
+---
+
+## 🔍 7. Explainability & Interpretability
+
+Explainability is mandatory in medical AI to verify that the model is detecting cancer cells, not artifacts (e.g., marker pen ink).
+
+### 1. Attention Heatmaps
+*   **Mechanism**: The attention scores $a_k$ (from Phase 3) indicate "importance".
+*   **Visualization**:
+    1.  Normalize $a_k$ to $[0, 1]$ using percentile clipping (robust to outliers).
+    2.  Map values to a color map (e.g., **Turbo** or **Jet**).
+    3.  Reconstruct the slide grid using tile coordinates.
+    4.  Overlay the heatmap on the WSI thumbnail.
+*   **Interpretation**: Red regions indicate high suspicion of malignancy (High Attention). Blue regions are considered normal or irrelevant.
+
+### 2. Top-K Tiles
+*   The system extracts and displays the top 10 patches with the highest attention scores.
+*   Clinicians can rapidly review these 10 patches to verify the diagnosis, rather than scanning the entire slide.
+
+---
+
+## 📄 8. Inference Output Format
+
+The inference pipeline produces structured outputs designed for programmatic parsing.
+
+### 1. Prediction JSON
+```json
+{
+  "slide_id": "test_slide_001",
+  "prediction": "Malignant",
+  "probability": 0.945,
+  "confidence_level": "High",
+  "timestamp": "2026-01-12T...",
+  "model_version": "v1.0.2"
+}
+```
+
+### 2. Confidence Scores
+*   Stored in CSV format for batch analysis.
+*   Contains raw logits, probability ($0.0-1.0$), and calibrated confidence tiers.
+
+### 3. Visualizations
+*   `heatmap_overlay.png`: Global view of disease distribution.
+*   `heatmap_raw.png`: Uninterpolated attention grid.
+*   `top_k_tiles/`: Directory containing high-resolution crops of ROI.
+
+---
+
+## 🧪 9. Testing & Evaluation
+
+### Offline Test Sandbox (`test_data/`)
+To ensure safety, we provide a completely isolated "Sandbox" environment.
+*   **Purpose**: Test user-uploaded images without contaminating the main `data/` folder.
+*   **Mechanism**: `scripts/test_inference.py` automatically routes inputs here.
+*   **Rules**: No training allowed. No evaluation metrics (ground truth assumed unavailable).
+
+### Formal Evaluation (`scripts/evaluate_mil.py`)
+*   Runs on the Held-Out Test Split.
+*   Generates:
+    *   **ROC Curve**: To assess sensitivity/specificity trade-off.
+    *   **Confusion Matrix**: To visualize false positives/negatives.
+    *   **F1 Score**: Harmonic mean of precision and recall.
+
+---
+
+## ⚙️ 10. Configuration & Customization
+
+The system is controlled by `configs/config.yaml`. No code changes are required for standard tuning.
+
 ```yaml
+# configs/config.yaml
+
 experiment:
   seed: 42
   deterministic: true
 
-hardware:
-  gpu_id: 0
-  max_vram_gb: 7.5
-
 preprocessing:
   tile_size: 256
-  magnification: 20
-  tissue_threshold: 0.5
+  magnification: 20x
+  tissue_threshold: 0.5  # Ignore tiles with <50% tissue
+
+feature_extraction:
+  model: "resnet50"      # Options: resnet50, gigapath
+  batch_size: 128
 
 mil:
   hidden_dim: 512
-  attn_dim: 256
-  learning_rate: 0.0001
-  num_epochs: 50
+  dropout: 0.25
+  learning_rate: 1e-4
+  epochs: 50
 ```
 
-### Labels Format
-
-`data/labels.csv`:
-```csv
-slide_name,label
-slide_001,0
-slide_002,1
-slide_003,0
-```
-
-- `0` = Benign
-- `1` = Malignant
+To swap the encoder, simply change `model: "resnet50"` to `gigapath` (assuming weights are downloaded).
 
 ---
 
-## 🎓 Academic Use
+## 🔌 11. Integration Guide
 
-### Citation
+This system is designed as a **Microservice Backend**. It does not provide a UI but exposes clear inputs/outputs for integration.
 
-```bibtex
-@software{gigapath_wsi_2026,
-  title={GigaPath AI: WSI Breast Cancer Lesion Analysis},
-  author={Your Name},
-  year={2026},
-  url={https://github.com/YourUsername/GigaPath-AI}
-}
-```
+### Connecting to a Web App (e.g., React/Next.js)
+1.  **Frontend**: User uploads a file.
+2.  **Backend API**: Fast backend (FastAPI/Flask) receives the file.
+3.  **Trigger**: API calls `scripts/test_inference.py --input <filepath>`.
+4.  **Polling**: API watches `test_data/test_results/predictions/` for the JSON result.
+5.  **Display**: Frontend renders the JSON data and serves the generated PNG heatmaps.
 
-### References
-
-- **CLAM**: Lu et al., "Data-efficient and weakly supervised computational pathology on whole-slide images" (2021)
-- **Attention MIL**: Ilse et al., "Attention-based deep multiple instance learning" (2018)
+### Connecting to a Desktop App (e.g., Electron/PyQt)
+1.  App bundles the Python environment or Docker container.
+2.  App invokes the Python scripts via `subprocess` calls.
+3.  App reads the JSON/CSV outputs from the local filesystem to display results.
 
 ---
 
-## ⚙️ System Requirements
+## 🔬 12. Reproducibility & Research Ethics
 
-**Minimum**:
-- Python 3.10+
-- 8 GB RAM
-- NVIDIA GPU with 2 GB VRAM (CUDA 11.8+)
+### Determinism
+*   All random seeds (Python, NumPy, PyTorch) are fixed in `config.yaml`.
+*   Hardware-specific non-deterministic algorithms are disabled where possible.
 
-
-**Recommended**:
-- Python 3.10
-- 16 GB RAM
-- NVIDIA RTX 4070 or better
-  
+### Data Privacy
+*   The system operates fully offline.
+*   No data is sent to external cloud services.
+*   Users are responsible for anonymizing WSIs (removing PHI) before processing.
 
 ---
 
-## 🐛 Troubleshooting
+## 🚧 13. Limitations & Future Work
 
-**OpenSlide DLL Error (Windows)**:
-```bash
-pip install openslide-bin
-```
-
-**CUDA Out of Memory**:
-- Reduce batch size in `config.yaml`
-- Lower `max_vram_gb` setting
-
-**Low AUC**:
-- Check class balance
-- Increase training epochs
-- Try different learning rate
+*   **Binary Only**: Currently detects only "Cancer" vs "Non-Cancer". It does not grade the cancer (e.g., Gleason score).
+*   **Stain Normalization**: Not currently implemented. Variations in H&E staining may affect performance.
+*   **Multi-Modal**: Currently supports only H&E images. Future work could include IHC stains.
+*   **3D Reconstruction**: Future versions could aggregate serial sections for 3D tumor mapping.
 
 ---
 
-## 🏗️ Detailed Architecture
+## 🚀 14. Installation & Execution
 
-### Phase 0: WSI Preprocessing
+### Prerequisites
+*   OS: Windows 10/11 or Linux (Ubuntu 20.04+)
+*   GPU: NVIDIA GPU with >6GB VRAM (Required for efficient inference) but the model is  optimised that it will use less than 1gb vram to run so chill out.
+*   Python: 3.10+
+*   CUDA: 11.8 or higher
 
-**Tissue Detection**:
-- Otsu's thresholding on grayscale thumbnail
-- Morphological operations (opening/closing)
-- Tissue ratio filtering (>50%)
-
-**Tile Extraction**:
-- **Debug Mode**: Saves tiles to disk for visualization
-- **Production Mode**: Transient in-memory processing (no disk I/O)
-- Coordinates stored in level-0 space for consistency
-
-**Key Innovation**: Dual-mode tile extraction prevents disk bloat in production while enabling debugging.
-
-### Phase 1: Feature Extraction
-
-**Backbone Architecture**:
-```python
-Pretrained GigaPath (Foundation Model)
-    ↓
-Tile Embeddings
-    ↓
-Output: (batch, 2048) feature vectors
-```
-
-**Why Pretrained GigaPath?**
-- **Foundation Model**: Trained on 1.3 billion pathology images
-- **Domain Specific**: Captures histological patterns better than ImageNet models
-- **Rich Embeddings**: 2048-dim vectors enable robust slide-level classification
-
-**HDF5 Structure**:
-```python
-slide_001.h5
-├── features: (N, 2048) float32
-├── coordinates: (N, 2) int32
-│   └── @space = "level_0"  # CRITICAL
-└── metadata:
-    ├── slide_name
-    ├── num_tiles
-    └── extraction_date
-```
-
-### Phase 2: Top-K Sampling
-
-**Ranking Methods**:
-1. **Feature Norm** (Current):
-   - Score = L2 norm of feature vector
-   - Fast, no dependencies
-   - Assumption: Higher norm = more informative
-
-2. **Attention-Based** (Future):
-   - Uses trained MIL model
-   - More accurate tile selection
-   - Requires Phase 3 completion
-
-**Storage Optimization**:
-```python
-# Traditional approach
-metadata['scores'] = scores  # 4 KB per slide
-
-# Our approach  
-metadata['score_stats'] = {
-    'min': 12.5,
-    'max': 45.3,
-    'mean': 28.7,
-    'std': 6.2
-}  # 16 bytes (250× smaller)
-```
-
-### Phase 3: MIL Model
-
-**Gated Attention Mechanism**:
-```
-Input: h_i ∈ R^2048 (tile features)
-
-Attention Branch:
-  V_i = tanh(W_V · h_i)
-
-Gate Branch:
-  U_i = σ(W_U · h_i)
-
-Gated Attention:
-  A_i = V_i ⊙ U_i
-
-Attention Weights:
-  α_i = exp(w^T A_i) / Σ_j exp(w^T A_j)
-
-Slide Embedding:
-  h_slide = Σ_i α_i · h_i
-
-Classification:
-  logit = W_c · h_slide
-  P(malignant) = σ(logit)
-```
-
-**Critical Implementation Details**:
-- Single logit output (not 2) for binary classification
-- Float32 enforcement prevents silent float64 VRAM doubling
-- Softmax dim=0 (across tiles, not batch)
-
-### Phase 4: Explainability
-
-**Heatmap Generation Pipeline**:
-```
-Attention weights (K,) → Gaussian smoothing → Jet colormap → Overlay on WSI
-```
-
-**Gaussian Smoothing**:
-- Sigma = tile_size / 4 (auto-calculated)
-- Prevents pixelated appearance
-- Maintains spatial structure
-
----
-
----
-
-## 🧪 User Upload Offline Testing
-
-**Inference-only sandbox** for testing user-uploaded images without touching training/evaluation artifacts.
-
-### Quick Test
+### Installation
 
 ```bash
-# Test with WSI (.tif/.tiff)
-python scripts/test_inference.py \
-    --input test_data/input/wsi/your_slide.tif \
-    --model checkpoints/best_model.pth
+# 1. Clone
+git clone https://github.com/YourUsername/GigaPath-AI.git
+cd GigaPath-AI
 
-# Test with patch (.png/.jpg)
+# 2. Env
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+
+# 3. Deps
+pip install -r requirements.txt
+pip install openslide-bin  # (Windows only)
+```
+
+### Execution (One-Line Sandbox Test)
+
+```bash
 python scripts/test_inference.py \
-    --input test_data/input/patches_direct/your_patch.png \
+    --input test_data/input/wsi/sample_01.tif \
     --model checkpoints/best_model.pth
 ```
 
-### Outputs
+---
 
-All results are saved to `test_data/test_results/`:
-- **Predictions**: `predictions/<image_id>_prediction.json`
-- **Heatmaps**: `heatmaps/mil_attention/`
-- **Summary**: `summary_report.md`
-- **Logs**: `logs/test_inference_*.log`
+## 🏁 15. Final Summary
 
-### Important Notes
-
-> [!WARNING]
-> **Research Use Only**
-> 
-> Predictions are model-based inferences, **NOT clinical diagnoses**.
-
-> [!NOTE]
-> **No Accuracy Metrics**
->
-> Ground truth is NOT available for user-uploaded images.
-> Accuracy is NOT computed. Confidence scores represent model certainty.
-
-### Safety Guarantees
-
-- ✅ Complete isolation from training/evaluation data
-- ✅ Never writes to `data/`, `results/`, or `checkpoints/`
-- ✅ Model used in eval mode only (no gradients)
-- ✅ Fully offline and reproducible
-
-For detailed usage, see [`test_data/README.md`](test_data/README.md).
+The **GigaPath-AI-WSI-Breast-Cancer-Lesion-Analysis** pipeline represents a robust, transparent, and modular approach to computational pathology. By combining the efficiency of patch-based encodings with the interpretability of Attention MIL, it provides a powerful tool for cancer research. Its strict folder structure, fail-safe inference logic, and comprehensive logging make it ready for immediate handover to engineering teams for deployment integration.
 
 ---
 
-## 📖 Advanced Usage Examples
-
-### Example 1: Single Slide Analysis
-
-```bash
-# 1. Process single slide
-python scripts/preprocess.py --input slide_001.svs --output tiles/ --save-tiles
-
-# 2. Extract features
-python scripts/extract_features.py --input tiles/slide_001 --output features/
-
-# 3. Top-K sampling
-python scripts/sample_tiles.py --input features/slide_001.h5 --output features_topk/
-
-# 4. Inference
-python scripts/infer_mil.py \
-  --model checkpoints/best_model.pth \
-  --features features_topk/slide_001_topk.h5 \
-  --output results.csv
-
-# 5. Visualize
-python scripts/generate_heatmaps.py \
-  --model checkpoints/best_model.pth \
-  --features features_topk/slide_001_topk.h5 \
-  --wsi slide_001.svs \
-  --output viz/
-```
-
-### Example 2: Batch Processing
-
-```bash
-# Process all slides in directory
-for phase in preprocess extract_features sample_tiles; do
-  python scripts/${phase}.py --input data/input --output data/output
-done
-
-# Batch inference
-python scripts/infer_mil.py \
-  --model checkpoints/best_model.pth \
-  --features data/features_topk \
-  --output results/all_predictions.csv
-```
-
-### Example 3: Resume Training
-
-```bash
-# Training interrupted? Resume from last checkpoint
-python scripts/train_mil.py \
-  --features data/features_topk \
-  --labels data/labels.csv \
-  --resume checkpoints/last_model.pth
-```
-
-### Example 4: Custom Configuration
-
-```bash
-# Use custom config file
-python scripts/train_mil.py \
-  --config configs/custom_config.yaml \
-  --features data/features_topk \
-  --labels data/labels.csv
-```
-
----
-
-## 🎓 Academic Justifications
-
-**Multiple Instance Learning Rationale**:
-> *"Whole slide images contain millions of pixels, making pixel-level annotation impractical. We employ Multiple Instance Learning (MIL), which enables training from slide-level labels (benign/malignant) without requiring expensive tile-level annotations. Each WSI is treated as a 'bag' containing K tile instances, with the slide-level label serving as weak supervision."*
-
-**Gated Attention Mechanism**:
-> *"Standard attention mechanisms can suffer from attention collapse during training. We implement gated attention (CLAM-style), which combines an attention branch (identifying relevant tiles) with a gate branch (regulating attention magnitude). This dual-branch design improves training stability and provides more interpretable attention weights for explainability."*
-
-**Top-K Sampling Strategy**:
-> *"Processing all extracted tiles (500-2000 per slide) is computationally expensive and includes many uninformative background tiles. We employ Top-K sampling (K=1000) based on feature norm ranking to select the most informative tiles, reducing computational cost by 33-50% while preserving diagnostic information in tissue-rich regions."*
-
-**Level-0 Coordinate Preservation**:
-> *"To enable accurate explainability, all tile coordinates are maintained in level-0 (highest resolution) pixel space throughout the pipeline. This ensures that MIL attention weights can be directly mapped to WSI locations for heatmap generation without coordinate space conversions, which could introduce localization errors."*
-
-**Float32 Enforcement**:
-> *"HDF5 files default to float64 precision when loading NumPy arrays. We enforce float32 conversion before GPU operations, halving VRAM consumption from ~16GB to ~8GB for K=1000 tiles. This optimization is critical for enabling training on consumer-grade GPUs (RTX 4070 8GB) without sacrificing model performance."*
-
----
-
-## 🚀 Deployment Guide
-
-### Docker Deployment
-
-**Dockerfile** (create this):
-```dockerfile
-FROM pytorch/pytorch:2.5-cuda11.8-cudnn8-runtime
-
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    openslide-tools \
-    python3-openslide \
-    libvips42
-
-# Copy requirements
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy code
-COPY src/ src/
-COPY scripts/ scripts/
-COPY configs/ configs/
-
-# Expose API port (if using REST API)
-EXPOSE 8000
-
-CMD ["python", "scripts/infer_mil.py"]
-```
-
-**Build & Run**:
-```bash
-# Build container
-docker build -t gigapath-wsi .
-
-# Run inference
-docker run --gpus all \
-  -v /path/to/data:/data \
-  -v /path/to/checkpoints:/checkpoints \
-  gigapath-wsi \
-  python scripts/infer_mil.py \
-    --model /checkpoints/best_model.pth \
-    --features /data/features_topk \
-    --output /data/results.csv
-```
-
-### REST API (Optional)
-
-Create `api/main.py`:
-```python
-from fastapi import FastAPI, UploadFile
-import torch
-from src.mil import AttentionMIL
-
-app = FastAPI()
-model = AttentionMIL(...)
-model.load_state_dict(torch.load('checkpoints/best_model.pth'))
-
-@app.post("/predict")
-async def predict(file: UploadFile):
-    # Load features, run inference
-    result = model.predict_slide(features)
-    return {"prediction": result['prediction'], 
-            "probability": result['probability']}
-```
-
-Run with: `uvicorn api.main:app --host 0.0.0.0 --port 8000`
-
----
-
-## 🔧 Advanced Troubleshooting
-
-**Issue: Slides Not Detected**
-```bash
-# Check OpenSlide compatibility
-python -c "import openslide; print(openslide.OpenSlide('slide.svs').level_count)"
-
-# Supported formats: .svs, .tiff, .ndpi, .mrxs
-# If unsupported: convert with ImageMagick or bioformats
-```
-
-**Issue: Low Training AUC (<0.7)**
-```bash
-# 1. Check class balance
-python -c "import pandas as pd; print(pd.read_csv('data/labels.csv')['label'].value_counts())"
-
-# 2. Increase epochs
-python scripts/train_mil.py --epochs 100
-
-# 3. Try different LR
-# Edit config.yaml: learning_rate: 0.00005
-```
-
-**Issue: GPU Out of Memory**
-```python
-# Edit config.yaml
-hardware:
-  max_vram_gb: 6.0  # Reduce from 7.5
-
-feature_extraction:
-  batch_size: 32    # Reduce from 48
-
-mil:
-  dropout: 0.5      # Increase regularization
-```
-
-**Issue: Attention Collapse (all weights similar)**
-```bash
-# 1. Check attention weight variance
-python -c "
-import torch
-model = torch.load('checkpoints/best_model.pth')
-# Inspect attention weights
-"
-
-# 2. Reduce dropout
-# Edit config.yaml: dropout: 0.1
-
-# 3. Add L2 regularization
-# Edit config.yaml: weight_decay: 0.0001
-```
-
----
-
-## 📊 Performance Benchmarks
-
-**Processing Speed** (RTX 4070 8GB, 100 slides):
-
-| Stage | Time/Slide | Total Time |
-|-------|-----------|-----------|
-| Preprocessing | 30s | 50 min |
-| Feature Extraction | 6 min | 10 hours |
-| Top-K Sampling | 0.5s | 50s |
-| MIL Training | - | 1.5 hours |
-| Inference | 15ms | 1.5s |
-| Heatmap Generation | 800ms | 1.3 min |
-
-**VRAM Usage**:
-- Model loading: 500 MB
-- Feature extraction (batch=48): 6.5 GB
-- MIL training (K=1000): 7.2 GB
-- Peak: 7.5 GB (safe for 8 GB GPU)
-
-**Accuracy Metrics** (Typical on balanced dataset):
-- Validation AUC: 0.82 ± 0.05
-- Accuracy: 0.78 ± 0.04
-- F1 Score: 0.76 ± 0.05
-- Sensitivity: 0.81
-- Specificity: 0.75
-
----
-
-## 🌐 Related Projects & Extensions
-
-**Recommended Next Steps**:
-1. **CTransPath Integration**: Replace ResNet50 with CTransPath (SOTA pathology backbone)
-2. **Multi-class Extension**: Extend to cancer subtypes (IDC, ILC, DCIS)
-3. **Ensemble Models**: Combine multiple MIL architectures
-4. **Active Learning**: Iteratively select uncertain slides for annotation
-
-**Compatible Backbones**:
-- CTransPath (pathology-specific)
-- RetCCL (contrastive learning)
-- UNI (foundation model)
-- Phikon (self-supervised)
-
----
-
-**Status**: ✅ Production Ready | All phases implemented and tested
-
-
-## 📝 License
-
-MIT License - See [LICENSE](LICENSE) for details
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create feature branch
-3. Add tests for new features
-4. Submit pull request
-
----
-
-## 📧 Contact
-
-For questions or issues, please open a GitHub issue or contact [your-email@example.com](mailto:your-email@example.com).
+*Documentation Generated: 2026-01-12 | Version 2.0.0*
