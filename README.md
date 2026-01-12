@@ -366,6 +366,58 @@ Attention weights (K,) → Gaussian smoothing → Jet colormap → Overlay on WS
 
 ---
 
+---
+
+## 🧪 User Upload Offline Testing
+
+**Inference-only sandbox** for testing user-uploaded images without touching training/evaluation artifacts.
+
+### Quick Test
+
+```bash
+# Test with WSI (.tif/.tiff)
+python scripts/test_inference.py \
+    --input test_data/input/wsi/your_slide.tif \
+    --model checkpoints/best_model.pth
+
+# Test with patch (.png/.jpg)
+python scripts/test_inference.py \
+    --input test_data/input/patches_direct/your_patch.png \
+    --model checkpoints/best_model.pth
+```
+
+### Outputs
+
+All results are saved to `test_data/test_results/`:
+- **Predictions**: `predictions/<image_id>_prediction.json`
+- **Heatmaps**: `heatmaps/mil_attention/`
+- **Summary**: `summary_report.md`
+- **Logs**: `logs/test_inference_*.log`
+
+### Important Notes
+
+> [!WARNING]
+> **Research Use Only**
+> 
+> Predictions are model-based inferences, **NOT clinical diagnoses**.
+
+> [!NOTE]
+> **No Accuracy Metrics**
+>
+> Ground truth is NOT available for user-uploaded images.
+> Accuracy is NOT computed. Confidence scores represent model certainty.
+
+### Safety Guarantees
+
+- ✅ Complete isolation from training/evaluation data
+- ✅ Never writes to `data/`, `results/`, or `checkpoints/`
+- ✅ Model used in eval mode only (no gradients)
+- ✅ Fully offline and reproducible
+
+For detailed usage, see [`test_data/README.md`](test_data/README.md).
+
+---
+
 ## 📖 Advanced Usage Examples
 
 ### Example 1: Single Slide Analysis
