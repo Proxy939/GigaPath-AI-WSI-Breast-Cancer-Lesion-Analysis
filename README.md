@@ -708,7 +708,7 @@ python scripts/infer_mil.py \
 
 ### Benchmark System Specifications
 - **GPU**: NVIDIA RTX 4070 (8GB VRAM)
-- **CPU**: Intel i7-12700K 
+- **CPU**: Intel Core i7-13650HX
 - **RAM**: 32GB DDR5
 - **Storage**: NVMe SSD
 
