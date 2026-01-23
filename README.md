@@ -137,7 +137,7 @@ graph TB
     
     subgraph Phase2["🎯 Phase 2: Top-K Sampling"]
         P2A[Load Full Features<br/>N × 2048]
-        P2B[Compute L2 Norms<br/>||f_i||₂]
+        P2B[Compute L2 Norms<br/>L2 Norm of feature vector]
         P2C[Sort by Norm<br/>Descending]
         P2D[Select Top-K<br/>K=1000 tiles]
         P2E[(Sampled Features<br/>K × 2048)]
