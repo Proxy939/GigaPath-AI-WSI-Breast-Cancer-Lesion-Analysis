@@ -159,7 +159,7 @@ graph TB
     subgraph Phase4["🔍 Phase 4: Explainability"]
         P4A[Extract Attention α_k]
         P4B[Percentile Clipping<br/>1% - 99%]
-        P4C[Normalize to [0,1]]
+        P4C[Normalize to 0-1 range]
         P4D[Apply Colormap<br/>Turbo/Viridis]
         P4E[Overlay on WSI<br/>Alpha Blending]
         P4F[Top-10 Tiles<br/>Highest Attention]
